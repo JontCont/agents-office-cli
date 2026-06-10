@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Office - Companion GUI</title>
+  <!-- Load outfit font for premium aesthetic -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo-area">
+        <h1>Agent Office</h1>
+        <span class="badge" data-i18n="logo_subtitle">Companion GUI</span>
+        <button id="btn-help" class="btn-icon" style="margin-left: 0.5rem; color: #a5b4fc;" title="How to use this UI" data-i18n-title="btn_help_title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+        </button>
+        <button id="btn-lang-toggle" class="btn-icon" style="margin-left: 0.5rem; color: #a5b4fc;" title="Switch Language / 切換語言" data-i18n-title="btn_lang_toggle_title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        </button>
+      </div>
+      <div class="run-info">
+        <div class="info-item">
+          <span class="label" data-i18n="run_id_label">Run ID:</span>
+          <span id="run-id-val" class="value">-</span>
+        </div>
+        <div class="info-item">
+          <span class="label" data-i18n="run_state_label">State:</span>
+          <span id="run-state-val" class="value-state state-queued">QUEUED</span>
+        </div>
+      </div>
+      <div class="connection-status">
+        <span id="status-dot" class="dot dot-disconnected"></span>
+        <span id="status-text" class="status-label">Disconnected</span>
+      </div>
+    </header>
+
+    <!-- Tab bar -->
+    <nav class="tab-bar">
+      <button id="tab-run" class="tab-btn tab-btn--active" data-tab="run">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <span data-i18n="tab_run">Run Thread</span>
+      </button>
+      <button id="tab-agents" class="tab-btn" data-tab="agents">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span data-i18n="tab_agents">Agents</span>
+      </button>
+    </nav>
+
+    <main class="app-content">
+      <!-- Tab: Run Thread -->
+      <div id="view-run" class="tab-view tab-view--active">
+        <!-- Left Panel: Thread Viewer -->
+        <section class="panel thread-panel">
+          <div class="panel-header">
+            <h2 data-i18n="run_thread_header">Run Thread</h2>
+            <span id="step-counter" class="count-badge">0 steps</span>
+          </div>
+          <div id="thread-view" class="thread-messages">
+            <div class="system-message init-notice" data-i18n="init_notice">
+              WebSocket connected. Run thread is waiting to stream events...
+            </div>
+          </div>
+        </section>
+
+        <!-- Right Panel: Telemetry & Controls -->
+        <section class="side-panel">
+          <!-- Telemetry Card -->
+          <div class="card telemetry-card">
+            <div class="card-header">
+              <h3 data-i18n="telemetry_header">Telemetry Dashboard</h3>
+            </div>
+            <div class="metrics-grid">
+              <div class="metric-box">
+                <span class="metric-label" data-i18n="metric_steps">Execution Steps</span>
+                <span id="metric-steps" class="metric-value">0</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-label" data-i18n="metric_tokens">Total LLM Tokens</span>
+                <span id="metric-tokens" class="metric-value">0</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-label" data-i18n="metric_latency">Elapsed Latency</span>
+                <span id="metric-latency" class="metric-value">0s</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-label" data-i18n="metric_stage">Active Stage</span>
+                <span id="metric-stage" class="metric-value">Planning</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-label" data-i18n="metric_cost">Est. Cost (USD)</span>
+                <span id="metric-cost" class="metric-value">$0.0000</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-label" data-i18n="metric_active_agents">Active Agents</span>
+                <span id="metric-active-agents" class="metric-value">0</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-label" data-i18n="metric_idle_agents">Idle Agents</span>
+                <span id="metric-idle-agents" class="metric-value">0</span>
+              </div>
+              <div class="metric-box">
+                <span class="metric-label" data-i18n="metric_total_agents">Total Agents</span>
+                <span id="metric-total-agents" class="metric-value">0</span>
+              </div>
+              <div class="metric-box metric-box--wide">
+                <div class="metric-header-row">
+                  <span class="metric-label" data-i18n="metric_session_log">Session Log</span>
+                  <button id="btn-view-log" class="btn-icon hidden" title="View Session Log" data-i18n-title="btn_view_log_title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  </button>
+                </div>
+                <span id="session-log-path" class="metric-value metric-value--small">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Controls Card -->
+          <div class="card control-card">
+            <div class="card-header">
+              <h3 data-i18n="controls_header">Supervisor Interruption Control</h3>
+            </div>
+            <div class="control-actions">
+              <button id="btn-interrupt" class="btn btn-primary" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"></rect><rect x="6" y="4" width="4" height="16" rx="1"></rect></svg>
+                <span data-i18n="btn_interrupt">Interrupt Run</span>
+              </button>
+              <button id="btn-abort" class="btn btn-danger" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                <span data-i18n="btn_abort">Abort Run</span>
+              </button>
+            </div>
+            <div id="guidance-section" class="guidance-area disabled">
+              <label id="guidance-label" for="guidance-input">Resume Guidance &amp; Feedback</label>
+              <textarea id="guidance-input" placeholder="Type supervisor guidance to inject into the thread..." disabled></textarea>
+              <button id="btn-resume" class="btn btn-success" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span id="btn-resume-text">Resume Execution</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tab: Agents -->
+      <div id="view-agents" class="tab-view">
+        <section class="panel agents-panel">
+          <div class="panel-header">
+            <h2 data-i18n="agents_header">Configured Agents</h2>
+            <button id="btn-add-agent" class="btn btn-primary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span data-i18n="btn_add_agent">Add Agent</span>
+            </button>
+          </div>          <!-- Add Agent inline form (hidden by default) -->
+          <div id="add-agent-form" class="add-agent-form hidden">
+            <h3 class="form-title" id="agent-form-title" data-i18n="agent_form_title_new">New Agent</h3>
+            <div class="form-row">
+              <label for="input-agent-name"><span data-i18n="label_agent_name">Name</span> <span class="required">*</span></label>
+              <input id="input-agent-name" type="text" placeholder="e.g. qa-engineer" autocomplete="off" data-i18n-placeholder="placeholder_agent_name">
+            </div>
+            <div class="form-row">
+              <label for="input-agent-role"><span data-i18n="label_agent_role">Role</span> <span class="required">*</span></label>
+              <input id="input-agent-role" type="text" placeholder="e.g. QA Engineer" autocomplete="off" data-i18n-placeholder="placeholder_agent_role">
+            </div>
+            <div class="form-row">
+              <label for="input-agent-color"><span data-i18n="label_agent_color">Theme Color</span></label>
+              <select id="input-agent-color">
+                <option value="#6366f1" style="color:#6366f1; font-weight:bold;">Indigo</option>
+                <option value="#a855f7" style="color:#a855f7; font-weight:bold;">Purple</option>
+                <option value="#3b82f6" style="color:#3b82f6; font-weight:bold;">Blue</option>
+                <option value="#10b981" style="color:#10b981; font-weight:bold;">Emerald</option>
+                <option value="#f59e0b" style="color:#f59e0b; font-weight:bold;">Amber</option>
+                <option value="#f43f5e" style="color:#f43f5e; font-weight:bold;">Rose</option>
+                <option value="#0d9488" style="color:#0d9488; font-weight:bold;">Teal</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="input-agent-avatar"><span data-i18n="label_agent_avatar">Avatar (Emoji or URL)</span></label>
+              <input id="input-agent-avatar" type="text" placeholder="e.g. 🤖 or image URL..." autocomplete="off" data-i18n-placeholder="placeholder_agent_avatar">
+            </div>
+            <div class="form-row">
+              <label for="input-agent-provider"><span data-i18n="label_agent_provider">AI Provider</span></label>
+              <select id="input-agent-provider">
+                <option value="">-- Select Provider --</option>
+                <option value="openai">OpenAI</option>
+                <option value="gemini">Gemini (Google)</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="openrouter">OpenRouter</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="input-agent-token"><span data-i18n="label_agent_token">API Key / Token</span></label>
+              <div style="display: flex; gap: 0.5rem; width: 100%;">
+                <input id="input-agent-token" type="password" placeholder="Enter API Key to Login (Optional)" autocomplete="off" data-i18n-placeholder="placeholder_agent_token" style="flex: 1; margin: 0;">
+                <button id="btn-test-token" class="btn btn-ghost" type="button" style="flex: 0 0 auto; width: 120px; font-size: 0.8rem; margin: 0;" data-i18n="btn_test_token">Test API Key</button>
+              </div>
+              <div id="test-token-result" class="test-result hidden" style="margin-top: 0.25rem;"></div>
+            </div>
+            <div class="form-row">
+              <label for="input-agent-model"><span data-i18n="label_agent_model">Model Name</span></label>
+              <input id="input-agent-model" type="text" placeholder="e.g. gpt-4o, gemini-1.5-pro, claude-3-5-sonnet" autocomplete="off" data-i18n-placeholder="placeholder_agent_model">
+            </div>
+            <div class="form-row">
+              <label for="input-agent-backstory" data-i18n="label_agent_backstory">Backstory</label>
+              <textarea id="input-agent-backstory" placeholder="Describe this agent's background and expertise..." data-i18n-placeholder="placeholder_agent_backstory"></textarea>
+            </div>
+            <div class="form-actions">
+              <button id="btn-submit-agent" class="btn btn-success" data-i18n="btn_submit_agent_new">Create Agent</button>
+              <button id="btn-cancel-agent" class="btn btn-ghost" data-i18n="btn_cancel_agent">Cancel</button>
+            </div>
+            <div id="agent-form-error" class="form-error hidden"></div>
+          </div>
+ 
+          <!-- Agents table -->
+          <div class="agents-table-wrapper">
+            <table id="agents-table" class="agents-table">
+              <thead>
+                <tr>
+                  <th data-i18n="th_name">Name</th>
+                  <th data-i18n="th_role">Role</th>
+                  <th data-i18n="th_backstory">Backstory</th>
+                  <th data-i18n="th_actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="agents-tbody">
+                <tr class="agents-empty-row">
+                  <td colspan="4" data-i18n="agents_loading">Loading agents...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal for displaying logs -->
+  <div id="log-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title" data-i18n="modal_log_title">Session Log</h3>
+        <button id="btn-close-modal" class="btn-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <pre id="log-content-pre" class="log-pre" data-i18n="step_loading">Loading...</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Help / Instructions -->
+  <div id="help-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="help-modal-title" data-i18n="help_modal_title">How to use Companion GUI</h3>
+        <button id="btn-close-help" class="btn-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" style="color: var(--text-secondary); line-height: 1.6; font-size: 0.95rem;">
+        <p style="margin-bottom: 1.25rem;"><strong style="color: var(--text-primary);" data-i18n="help_step_1_title">1. Setup your Team (Agents Tab)</strong><br>
+        <span data-i18n="help_step_1_desc">Before running any tasks, go to the <b style="color: #a5b4fc;">Agents</b> tab and add your agents (e.g., planner, coder, reviewer). If no agents are configured, the run will fail immediately.</span></p>
+        
+        <p style="margin-bottom: 1.25rem;"><strong style="color: var(--text-primary);" data-i18n="help_step_2_title">2. Apply Changes (Terminal)</strong><br>
+        <span data-i18n="help_step_2_desc">Changes to agents or models are saved to <code>agent-office.yaml</code>. To apply these changes and start a new run, you must restart the <code>.\agent-office.exe gui</code> process in your terminal.</span></p>
+
+        <p style="margin-bottom: 1.25rem;"><strong style="color: var(--text-primary);" data-i18n="help_step_3_title">3. Monitor the Run Thread</strong><br>
+        <span data-i18n="help_step_3_desc">Watch the agents collaborate in real-time. The Telemetry Dashboard tracks your active token usage, estimated cost, and latency for the current session.</span></p>
+
+        <p style="margin-bottom: 0;"><strong style="color: var(--text-primary);" data-i18n="help_step_4_title">4. Supervisor Interruption</strong><br>
+        <span data-i18n="help_step_4_desc">If the agents go off track, click <b style="color: #fbbf24;">Interrupt Run</b>. The process will pause, allowing you to type guidance into the feedback box. Click <b style="color: #34d399;">Resume Execution</b> to inject your feedback and steer the agents.</span></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="./src/main.js"></script>
+</body>
+</html>

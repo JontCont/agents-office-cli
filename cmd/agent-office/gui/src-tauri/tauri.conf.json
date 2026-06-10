@@ -1,0 +1,27 @@
+{
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devUrl": "http://localhost:8080",
+    "frontendDist": "../"
+  },
+  "package": {
+    "productName": "Agent Office GUI",
+    "version": "0.1.0"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "identifier": "com.company.agent-office-gui",
+    "icon": []
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Agent Office - Workforce Companion",
+        "width": 1200,
+        "height": 800
+      }
+    ]
+  }
+}
