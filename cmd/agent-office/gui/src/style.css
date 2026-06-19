@@ -317,6 +317,7 @@ body {
 
 .thread-messages {
   flex: 1;
+  min-height: 0;
   padding: 1.5rem;
   overflow-y: auto;
   display: flex;
@@ -359,7 +360,7 @@ body {
 }
 
 .message-row--supervisor {
-  justify-content: flex-end;
+  justify-content: end;
   flex-direction: row-reverse;
 }
 
@@ -1524,4 +1525,96 @@ body {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* --- Added for Dashboard Restructure --- */
+
+/* Thread control area at the bottom of the left chat panel */
+.thread-control-area {
+  padding: 1.25rem;
+  background: rgba(10, 15, 26, 0.4);
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.thread-control-area .guidance-area {
+  border-top: none;
+  padding-top: 0;
+}
+
+.control-actions-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.control-actions-row .btn {
+  flex: 1;
+}
+
+/* Accordion categories for Telemetry Card */
+.accordion-group {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.accordion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #e5e7eb;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.accordion-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.accordion-icon {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.accordion-content {
+  max-height: 500px;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.accordion-content.collapsed {
+  max-height: 0;
+}
+
+.accordion-header.collapsed .accordion-icon {
+  transform: rotate(-90deg);
+}
+
+/* Collapsible side panel transition */
+.side-panel {
+  transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, width 0.3s ease;
+}
+
+.sidebar-collapsed .side-panel {
+  flex: 0 0 0px !important;
+  width: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+/* Logs panel inside Logs tab */
+.logs-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
 }

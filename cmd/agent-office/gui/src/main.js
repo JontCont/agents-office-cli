@@ -17,7 +17,13 @@ const translations = {
     run_id_label: "Run ID:",
     run_state_label: "State:",
     tab_run: "Run Thread",
+    tab_logs: "Logs",
     tab_agents: "Agents",
+    logs_header: "Session Logs",
+    category_workforce: "Workforce",
+    category_execution: "Execution",
+    category_costs_logs: "Costs & Logs",
+    btn_sidebar_toggle_title: "Toggle Sidebar",
     run_thread_header: "Run Thread",
     init_notice: "WebSocket connected. Run thread is waiting to stream events...",
     telemetry_header: "Telemetry Dashboard",
@@ -81,7 +87,13 @@ const translations = {
     run_id_label: "運行 ID:",
     run_state_label: "狀態:",
     tab_run: "運行線程",
+    tab_logs: "日誌",
     tab_agents: "智能體配置",
+    logs_header: "運行日誌",
+    category_workforce: "團隊成員",
+    category_execution: "執行狀態",
+    category_costs_logs: "成本與日誌",
+    btn_sidebar_toggle_title: "折疊/顯示側邊欄",
     run_thread_header: "運行線程",
     init_notice: "WebSocket 已連線。正在等待串流事件...",
     telemetry_header: "數據面板 (Telemetry)",
@@ -220,9 +232,12 @@ const guidanceInput   = document.getElementById('guidance-input');
 
 // Tabs
 const tabRun    = document.getElementById('tab-run');
+const tabLogs   = document.getElementById('tab-logs');
 const tabAgents = document.getElementById('tab-agents');
 const viewRun   = document.getElementById('view-run');
+const viewLogs  = document.getElementById('view-logs');
 const viewAgents = document.getElementById('view-agents');
+const tabLogContentPre = document.getElementById('tab-log-content-pre');
 
 // Agents panel
 const btnAddAgent    = document.getElementById('btn-add-agent');
@@ -250,6 +265,8 @@ window.addEventListener('DOMContentLoaded', () => {
   setupModal();
   setupLangToggle();
   setupSmartScroll();
+  setupAccordions();
+  setupSidebarToggle();
 });
 
 async function initTotalAgents() {
@@ -447,17 +464,8 @@ async function fetchAndShowSessionLog() {
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 function setupModal() {
-  btnViewLog.addEventListener('click', async () => {
-    logModal.classList.remove('hidden');
-    logContentPre.textContent = 'Loading...';
-    try {
-      const res = await fetch('/api/session/latest/content');
-      if (!res.ok) throw new Error('Failed to load');
-      const json = await res.json();
-      logContentPre.textContent = JSON.stringify(json, null, 2);
-    } catch (e) {
-      logContentPre.textContent = 'Error loading log content.';
-    }
+  btnViewLog.addEventListener('click', () => {
+    switchTab('logs');
   });
 
   btnCloseModal.addEventListener('click', () => {
@@ -591,20 +599,28 @@ function updateRunState(state) {
 // ─── Tab switching ────────────────────────────────────────────────────────────
 function setupTabs() {
   tabRun.addEventListener('click', () => switchTab('run'));
+  tabLogs.addEventListener('click', () => switchTab('logs'));
   tabAgents.addEventListener('click', () => switchTab('agents'));
 }
 
 function switchTab(tab) {
+  tabRun.classList.remove('tab-btn--active');
+  tabLogs.classList.remove('tab-btn--active');
+  tabAgents.classList.remove('tab-btn--active');
+  viewRun.classList.remove('tab-view--active');
+  viewLogs.classList.remove('tab-view--active');
+  viewAgents.classList.remove('tab-view--active');
+
   if (tab === 'run') {
     tabRun.classList.add('tab-btn--active');
-    tabAgents.classList.remove('tab-btn--active');
     viewRun.classList.add('tab-view--active');
-    viewAgents.classList.remove('tab-view--active');
-  } else {
+  } else if (tab === 'logs') {
+    tabLogs.classList.add('tab-btn--active');
+    viewLogs.classList.add('tab-view--active');
+    loadLatestSessionLogContent();
+  } else if (tab === 'agents') {
     tabAgents.classList.add('tab-btn--active');
-    tabRun.classList.remove('tab-btn--active');
     viewAgents.classList.add('tab-view--active');
-    viewRun.classList.remove('tab-view--active');
     loadAgents();
   }
 }
@@ -1212,4 +1228,42 @@ function escapeHtml(str) {
   const d = document.createElement('div');
   d.appendChild(document.createTextNode(str));
   return d.innerHTML;
+}
+
+// ─── Telemetry Accordion & Collapsible Sidebar ─────────────────────────────────
+function setupAccordions() {
+  const headers = document.querySelectorAll('.accordion-header');
+  headers.forEach(header => {
+    header.addEventListener('click', () => {
+      const targetId = header.getAttribute('data-target');
+      const content = document.getElementById(targetId);
+      if (content) {
+        const isCollapsed = content.classList.toggle('collapsed');
+        header.classList.toggle('collapsed', isCollapsed);
+      }
+    });
+  });
+}
+
+function setupSidebarToggle() {
+  const btn = document.getElementById('btn-sidebar-toggle');
+  const appContent = document.querySelector('.app-content');
+  if (btn && appContent) {
+    btn.addEventListener('click', () => {
+      appContent.classList.toggle('sidebar-collapsed');
+    });
+  }
+}
+
+async function loadLatestSessionLogContent() {
+  if (!tabLogContentPre) return;
+  tabLogContentPre.textContent = currentLanguage === 'zh' ? '正在載入日誌...' : 'Loading logs...';
+  try {
+    const res = await fetch('/api/session/latest/content');
+    if (!res.ok) throw new Error('Failed to load');
+    const json = await res.json();
+    tabLogContentPre.textContent = JSON.stringify(json, null, 2);
+  } catch (e) {
+    tabLogContentPre.textContent = currentLanguage === 'zh' ? '載入日誌內容失敗。' : 'Error loading log content.';
+  }
 }

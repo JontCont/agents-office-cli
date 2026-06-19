@@ -102,30 +102,20 @@ tests:
 
 ---
 ### Requirement: Session log path displayed in GUI after completion
-After a run completes, the GUI SHALL display the path of the saved session log file in the telemetry panel so the user knows where to find it.
+After a run completes, the GUI SHALL display the path of the saved session log file in the telemetry panel. The system SHALL also load and render the full session log content in the dedicated Logs tab, replacing the modal popup log viewer.
 
 #### Scenario: Session log path shown in GUI
-- **WHEN** the GUI receives a `state.change` event with content `COMPLETED` or `CANCELLED`
-- **THEN** the GUI SHALL fetch `GET /api/session/latest` and display the returned log file path in the telemetry panel as a non-interactive label
+- **WHEN** the GUI receives a state.change event with content COMPLETED or CANCELLED
+- **THEN** the GUI SHALL fetch GET /api/session/latest and display the returned log file path in the telemetry panel
+- **AND** when the user clicks the Logs tab, the GUI SHALL fetch GET /api/session/latest/content and display the log JSON in the tab's content panel
 
 <!-- @trace
-source: agent-office-feature-completion
-updated: 2026-06-10
+source: restructure-dashboard-layout
+updated: 2026-06-19
 code:
-  - pkg/workforce/provider.go
-  - pkg/config/config.go
-  - .agent-office-sessions/2026-06-10-run-75549.json
-  - .agent-office-sessions/2026-06-10-run-79450.json
-  - pkg/workforce/server.go
-  - agent-office.yaml
-  - cmd/agent-office/gui/src/style.css
-  - agent-office.exe
-  - .agent-office-token
   - cmd/agent-office/gui/index.html
-  - cmd/agent-office/main.go
-  - agent-office.exe~
+  - .autohand/skills/frontend-design/SKILL.md
   - cmd/agent-office/gui/src/main.js
-tests:
-  - pkg/workforce/provider_test.go
-  - pkg/config/config_test.go
+  - cmd/agent-office/gui/src/style.css
+  - .autohand/skills/frontend-design
 -->

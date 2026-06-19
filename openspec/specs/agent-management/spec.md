@@ -96,17 +96,15 @@ tests:
 
 ---
 ### Requirement: Agents management panel in GUI
-The system SHALL add an Agents tab to the GUI companion dashboard. The tab SHALL display a grid of cards of all configured agents (name, role, backstory, provider, model) with Edit and Delete actions for each card, and an Add Agent button that slides in a drawer-form from the right edge for agent creation/editing.
-- The drawer-form MUST slide in and out smoothly and support an independent scrollbar (`overflow-y: auto`) to ensure action buttons are never cut off.
-- Selecting a provider in the AI Provider dropdown SHALL automatically pre-populate a default model name in the Model Name field.
-- During form submission or connection testing, the corresponding action button SHALL show visual loading feedback and be disabled to prevent duplicate submissions.
-- Clicking Edit SHALL populate the drawer-form with the agent's current values and open it.
-- Submitting the form in Edit mode SHALL send a `PUT /api/agents` request and refresh the grid on success.
-- Clicking Delete SHALL trigger a confirmation and send a `DELETE /api/agents?name=<name>` request on approval, refreshing the grid on success.
+The system SHALL provide a multi-tab GUI companion dashboard supporting a top navigation tab bar with exactly three tabs: Run Thread, Logs, and Agents.
+- The Agents tab SHALL display a grid of cards of all configured agents (name, role, backstory, provider, model) with Edit and Delete actions for each card, and an Add Agent button that slides in a drawer-form from the right edge for agent creation/editing.
+- The drawer-form MUST slide in and out smoothly using CSS transitions, and when hidden, its visibility MUST be set to hidden to prevent layout shift or off-screen focus issues.
+- The drawer-form MUST place the action buttons (Create/Cancel) in a fixed footer block positioned absolutely at the bottom, while the input fields wrapper in the middle has an independent scrollbar (overflow-y: auto) with a custom modern scrollbar to ensure action buttons are never cut off.
+- The right telemetry dashboard panel SHALL support category-based collapsible sections and a global collapse button to fold the entire sidebar out of view.
 
 #### Scenario: Agents tab displays configured agents
 - **WHEN** the user opens the GUI and clicks the Agents tab
-- **THEN** the GUI SHALL fetch `GET /api/agents` and display each agent's name, role, and backstory in a card grid with Edit and Delete icon buttons
+- **THEN** the GUI SHALL fetch GET /api/agents and display each agent's name, role, and backstory in a card grid with Edit and Delete icon buttons
 
 #### Scenario: Add Agent drawer opens, pre-fills model, and submits successfully
 - **WHEN** the user clicks Add Agent
@@ -115,32 +113,29 @@ The system SHALL add an Agents tab to the GUI companion dashboard. The tab SHALL
 - **THEN** the Model Name input field SHALL automatically be pre-filled with "claude-3-haiku"
 - **AND WHEN** the user fills the rest of the form and clicks Submit
 - **THEN** the Submit button SHALL show loading state
-- **AND** the GUI SHALL POST to `/api/agents` and, on HTTP 201, slide the drawer out and refresh the agent grid to include the new agent
+- **AND** the GUI SHALL POST to /api/agents and, on HTTP 201, slide the drawer out and refresh the agent grid to include the new agent
 
 #### Scenario: Edit Agent drawer opens and submits changes
 - **WHEN** the user clicks Edit on an agent card
 - **THEN** the drawer SHALL slide in from the right populated with current agent values
 - **AND WHEN** the user modifies fields and clicks Submit
 - **THEN** the Submit button SHALL show loading state
-- **AND** the GUI SHALL PUT to `/api/agents` and, on HTTP 200, slide the drawer out and refresh the agent grid to show the updated values
+- **AND** the GUI SHALL PUT to /api/agents and, on HTTP 200, slide the drawer out and refresh the agent grid to show the updated values
 
 #### Scenario: Delete Agent triggers confirmation and refreshes list
 - **WHEN** the user clicks Delete on an agent card and confirms
-- **THEN** the GUI SHALL send `DELETE /api/agents?name=<name>` and, on HTTP 200, refresh the agent grid to remove the deleted agent
+- **THEN** the GUI SHALL send DELETE /api/agents?name=<name> and, on HTTP 200, refresh the agent grid to remove the deleted agent
 
 
 <!-- @trace
-source: optimize-frontend-uiux
+source: restructure-dashboard-layout
 updated: 2026-06-19
 code:
   - cmd/agent-office/gui/index.html
-  - cmd/agent-office/gui/src/style.css
-  - skills-lock.json
-  - cmd/agent-office/gui/src/main.js
-  - .agents/skills/frontend-design/SKILL.md
   - .autohand/skills/frontend-design/SKILL.md
+  - cmd/agent-office/gui/src/main.js
+  - cmd/agent-office/gui/src/style.css
   - .autohand/skills/frontend-design
-  - go.mod
 -->
 
 ---
@@ -179,7 +174,7 @@ tests:
 
 ---
 ### Requirement: Idle mode and dynamic task initiation
-The companion GUI dashboard SHALL start in a resting IDLE state upon launching. The input textarea and action button SHALL be unlocked, allowing the user to input a starting task description.
+The companion GUI dashboard SHALL start in a resting IDLE state upon launching. The input textarea and action buttons SHALL be located at the bottom of the Run Thread panel, unlocked, allowing the user to input a starting task description like a chatroom interface.
 - Submitting the task SHALL send a WebSocket command run.start containing the starting prompt.
 - The coordinator SHALL receive run.start, transition state to RUNNING, and initialize the workforce loop.
 
@@ -195,28 +190,14 @@ The companion GUI dashboard SHALL start in a resting IDLE state upon launching. 
 
 
 <!-- @trace
-source: interactive-workforce-orchestration
-updated: 2026-06-11
+source: restructure-dashboard-layout
+updated: 2026-06-19
 code:
-  - .agent-office-sessions/2026-06-10-run-79450.json
-  - .agent-office-sessions/2026-06-10-run-75549.json
   - cmd/agent-office/gui/index.html
-  - pkg/workforce/coordinator.go
-  - pkg/workforce/server.go
-  - pkg/workforce/provider.go
-  - cmd/agent-office/gui/src/style.css
-  - pkg/workforce/types.go
-  - agent-office.yaml
-  - pkg/config/config.go
-  - agent-office.exe
-  - .agent-office-sessions/2026-06-10-run-79509.json
-  - pkg/workforce/interruption.go
-  - .agent-office-token
-  - agent-office.exe~
+  - .autohand/skills/frontend-design/SKILL.md
   - cmd/agent-office/gui/src/main.js
-  - cmd/agent-office/main.go
-tests:
-  - pkg/config/config_test.go
+  - cmd/agent-office/gui/src/style.css
+  - .autohand/skills/frontend-design
 -->
 
 ---
