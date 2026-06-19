@@ -50,6 +50,24 @@ func TestDeterministicTurnCoordination(t *testing.T) {
 			fallbackPlanner: "planner",
 			expectedNext:    "planner",
 		},
+		{
+			name:         "Human handoff with @user syntax",
+			lastMessage:  "Wait, let's ask @user",
+			stage:        "Coding",
+			expectedNext: "User",
+		},
+		{
+			name:         "Human handoff with @supervisor syntax",
+			lastMessage:  "@supervisor, what do you think?",
+			stage:        "Coding",
+			expectedNext: "User",
+		},
+		{
+			name:         "Human handoff with @human syntax",
+			lastMessage:  "Paging @human",
+			stage:        "Coding",
+			expectedNext: "User",
+		},
 	}
 
 	for _, tt := range tests {

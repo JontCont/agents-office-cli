@@ -364,6 +364,15 @@ btnResume.addEventListener('click', () => {
   guidanceInput.value = '';
 });
 
+guidanceInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!btnResume.disabled) {
+      btnResume.click();
+    }
+  }
+});
+
 function disableAllControls() {
   btnInterrupt.disabled = true;
   btnAbort.disabled = true;
@@ -381,7 +390,7 @@ function handleServerEvent(evt) {
 
   switch (evt.type) {
     case 'state.change':
-      if (evt.content === 'RUNNING') {
+      if (evt.content === 'RUNNING' && currentRunState === 'QUEUED') {
         threadView.innerHTML = '';
         totalTokens = 0;
         totalSteps = 0;

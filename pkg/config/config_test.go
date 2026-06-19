@@ -37,7 +37,10 @@ func TestAgentConfigJSONTags(t *testing.T) {
 
 func TestConfigLoadSave(t *testing.T) {
 	tmpFile := "test-agent-office.yaml"
-	defer os.Remove(tmpFile)
+	defer func() {
+		os.Remove(tmpFile)
+		os.RemoveAll(".agents/agent-1")
+	}()
 
 	cfg := &Config{
 		Version:  "1.0",

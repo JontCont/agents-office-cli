@@ -2,6 +2,9 @@ package config
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,11 +38,47 @@ func LoadConfig(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+
+	// Load backstory from filesystem if exists
+	for i, a := range cfg.Agents {
+		normalized := strings.ToLower(a.Name)
+		normalized = strings.ReplaceAll(normalized, " ", "_")
+		promptPath := filepath.Join(".agents", normalized, "system_prompt.md")
+		if content, err := os.ReadFile(promptPath); err == nil {
+			cfg.Agents[i].Backstory = strings.TrimSpace(string(content))
+		}
+	}
+
 	return &cfg, nil
 }
 
 // SaveConfig marshals cfg to YAML and writes it to path with 0644 permissions.
 func SaveConfig(path string, cfg *Config) error {
+	// Preserve original backstories to restore them afterwards
+	backstories := make([]string, len(cfg.Agents))
+	for i, a := range cfg.Agents {
+		backstories[i] = a.Backstory
+		if a.Backstory != "" {
+			normalized := strings.ToLower(a.Name)
+			normalized = strings.ReplaceAll(normalized, " ", "_")
+			dirPath := filepath.Join(".agents", normalized)
+			if err := os.MkdirAll(dirPath, 0755); err != nil {
+				return err
+			}
+			filePath := filepath.Join(dirPath, "system_prompt.md")
+			if err := os.WriteFile(filePath, []byte(a.Backstory), 0644); err != nil {
+				return err
+			}
+		}
+		cfg.Agents[i].Backstory = ""
+	}
+
+	defer func() {
+		for i := range cfg.Agents {
+			cfg.Agents[i].Backstory = backstories[i]
+		}
+	}()
+
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return err

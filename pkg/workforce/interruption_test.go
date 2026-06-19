@@ -36,7 +36,7 @@ func TestInterruptionFlow(t *testing.T) {
 	// Simulating the workforce loop
 	go func() {
 		for i := 1; i <= 3; i++ {
-			if !coordinator.CheckStepBoundary() {
+			if ok, _ := coordinator.CheckStepBoundary(); !ok {
 				doneChan <- false
 				return
 			}

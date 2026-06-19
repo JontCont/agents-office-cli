@@ -788,6 +788,23 @@ func startMockRun(coord *workforce.Coordinator, server *workforce.WSServer, cfg 
 	}()
 }
 
+func isSelfIntroductionRequest(history []ChatMessage) bool {
+	for i := len(history) - 1; i >= 0; i-- {
+		if history[i].Role == "user" {
+			content := strings.ToLower(history[i].Content)
+			if strings.Contains(content, "自我介紹") ||
+				strings.Contains(content, "介紹自己") ||
+				strings.Contains(content, "介紹一下") ||
+				strings.Contains(content, "introduce yourself") ||
+				strings.Contains(content, "introduce yourselves") ||
+				strings.Contains(content, "who are you") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSServer, cfg *config.Config, prompt string, runID string) {
 	providerStr := cfg.Provider
 	if providerStr == "" && len(cfg.Agents) > 0 {
@@ -873,7 +890,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 	lastMessage := prompt
 	for i := 0; i < 6; i++ {
 		// Step boundary check (blocks when interrupted)
-		if !coord.CheckStepBoundary() {
+		if ok, _ := coord.CheckStepBoundary(); !ok {
 			server.BroadcastEvent(workforce.Event{
 				ID:        fmt.Sprintf("evt-abort-%d", i),
 				RunID:     runID,
@@ -916,7 +933,80 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 		}
 
 		// Determine speaker based on routing
-		speaker := workforce.RouteTurn(lastMessage, "Planning", wfAgents, cfg.Agents[0].Name)
+		hasMention := false
+		lowerMsg := strings.ToLower(lastMessage)
+		if strings.Contains(lowerMsg, "@user") || strings.Contains(lowerMsg, "@supervisor") || strings.Contains(lowerMsg, "@human") {
+			hasMention = true
+		} else {
+			for _, a := range cfg.Agents {
+				name := strings.ToLower(a.Name)
+				norm := strings.ReplaceAll(name, " ", "")
+				hyphenated := strings.ReplaceAll(name, " ", "-")
+				underscored := strings.ReplaceAll(name, " ", "_")
+				if strings.Contains(lowerMsg, "@"+name) || strings.Contains(lowerMsg, "@"+norm) || strings.Contains(lowerMsg, "@"+hyphenated) || strings.Contains(lowerMsg, "@"+underscored) {
+					hasMention = true
+					break
+				}
+			}
+		}
+
+		speaker := ""
+		if !hasMention && isSelfIntroductionRequest(history) {
+			spoken := make(map[string]bool)
+			for _, msg := range history {
+				if msg.Role == "assistant" {
+					spoken[strings.ToLower(msg.Name)] = true
+				}
+			}
+			for _, a := range cfg.Agents {
+				normalizedName := strings.ReplaceAll(strings.ToLower(a.Name), " ", "_")
+				if !spoken[normalizedName] {
+					speaker = a.Name
+					break
+				}
+			}
+		}
+
+		if speaker == "" {
+			speaker = workforce.RouteTurn(lastMessage, "Planning", wfAgents, cfg.Agents[0].Name)
+		}
+
+		if speaker == "User" {
+			_ = coord.AskHuman()
+			ok, feedback := coord.CheckStepBoundary()
+			if !ok {
+				server.BroadcastEvent(workforce.Event{
+					ID:        fmt.Sprintf("evt-abort-%d", i),
+					RunID:     runID,
+					Type:      "system.log",
+					Timestamp: time.Now().Unix(),
+					Sender:    "system",
+					Content:   "Run aborted by supervisor.",
+				})
+				// Write session log for cancelled run
+				endedAt := time.Now().Unix()
+				rate := workforce.GetCostPer1KTokens(workforce.AIProvider(providerStr))
+				_ = workforce.WriteSessionLog(workforce.SessionLog{
+					RunID:            runID,
+					Provider:         providerStr,
+					Model:            modelStr,
+					StartedAt:        startedAt,
+					EndedAt:          endedAt,
+					TotalTokens:      totalTokens,
+					EstimatedCostUSD: float64(totalTokens) / 1000.0 * rate,
+					Steps:            totalSteps,
+				})
+				return
+			}
+			lastMessage = feedback
+			history = append(history, ChatMessage{
+				Role:    "user",
+				Content: feedback,
+				Name:    "Supervisor",
+			})
+			i--
+			continue
+		}
 
 		// Find active agent details
 		var activeAgent *config.AgentConfig
@@ -949,12 +1039,24 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 				otherAgentNames = append(otherAgentNames, "@"+a.Name)
 			}
 		}
-		systemPrompt := fmt.Sprintf("You are an AI agent named %s with the role '%s' and backstory: %s. "+
-			"You are collaborating with other agents in a workforce to solve the user's task. Respond to the conversation history in character. "+
-			"Keep your response concise and focused on solving the user's task. "+
-			"To tag or hand off to another agent, mention them with @AgentName (available other agents: %s). "+
-			"If the task is complete and nothing else needs to be done, summarize the results and state that the work is finalized.",
-			activeAgent.Name, activeAgent.Role, activeAgent.Backstory, strings.Join(otherAgentNames, ", "))
+		var systemPrompt string
+		globalPromptPath := filepath.Join(".agents", "system_prompt.md")
+		if data, err := os.ReadFile(globalPromptPath); err == nil {
+			tmpl := string(data)
+			tmpl = strings.ReplaceAll(tmpl, "{{.Name}}", activeAgent.Name)
+			tmpl = strings.ReplaceAll(tmpl, "{{.Role}}", activeAgent.Role)
+			tmpl = strings.ReplaceAll(tmpl, "{{.Backstory}}", activeAgent.Backstory)
+			tmpl = strings.ReplaceAll(tmpl, "{{.OtherAgents}}", strings.Join(otherAgentNames, ", "))
+			systemPrompt = tmpl
+		} else {
+			systemPrompt = fmt.Sprintf("You are an AI agent named %s with the role '%s' and backstory: %s. "+
+				"You are collaborating with other agents in a workforce to solve the user's task. Respond to the conversation history in character. "+
+				"Keep your response concise and focused on solving the user's task. "+
+				"To tag or hand off to another agent, mention them with @AgentName (available other agents: %s). "+
+				"To request feedback or ask a question to the human supervisor, mention @User. Tagging @User will automatically pause execution to wait for their input. "+
+				"If the task is complete and nothing else needs to be done, summarize the results and state that the work is finalized.",
+				activeAgent.Name, activeAgent.Role, activeAgent.Backstory, strings.Join(otherAgentNames, ", "))
+		}
 
 		// Call LLM
 		var content string
@@ -1041,7 +1143,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 	}
 
 	// Final boundary check before completing
-	if !coord.CheckStepBoundary() {
+	if ok, _ := coord.CheckStepBoundary(); !ok {
 		server.BroadcastEvent(workforce.Event{
 			ID:        "evt-abort-final",
 			RunID:     runID,

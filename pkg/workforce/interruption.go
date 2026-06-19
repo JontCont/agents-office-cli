@@ -112,13 +112,13 @@ func (c *Coordinator) AskHuman() error {
 }
 
 // CheckStepBoundary halts the run loop if an interruption was requested.
-// Returns true if execution should continue, false if aborted.
-func (c *Coordinator) CheckStepBoundary() bool {
+// Returns true if execution should continue, false if aborted. The second return value contains the feedback message.
+func (c *Coordinator) CheckStepBoundary() (bool, string) {
 	c.mu.Lock()
 	if c.state == StateInterrupting {
 		c.mu.Unlock()
 		if err := c.Transition(StateInterrupted); err != nil {
-			return false
+			return false, ""
 		}
 	} else {
 		c.mu.Unlock()
@@ -129,19 +129,19 @@ func (c *Coordinator) CheckStepBoundary() bool {
 		select {
 		case msg := <-c.resumeChan:
 			if err := c.Transition(StateResuming); err != nil {
-				return false
+				return false, ""
 			}
 			if c.onMessage != nil {
 				c.onMessage("Supervisor", msg)
 			}
 			if err := c.Transition(StateRunning); err != nil {
-				return false
+				return false, ""
 			}
-			return true
+			return true, msg
 		case <-c.abortChan:
 			_ = c.Transition(StateCancelled)
-			return false
+			return false, ""
 		}
 	}
-	return true
+	return true, ""
 }

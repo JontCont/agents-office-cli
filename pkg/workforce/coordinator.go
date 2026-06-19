@@ -14,8 +14,16 @@ func RouteTurn(lastMessage string, stage string, agents []Agent, fallbackPlanner
 		return s
 	}
 
-	// 1. Explicit Handoff Check
 	lowerMsg := strings.ToLower(lastMessage)
+
+	// 0. Human Handoff Check
+	if strings.Contains(lowerMsg, "@user") ||
+		strings.Contains(lowerMsg, "@supervisor") ||
+		strings.Contains(lowerMsg, "@human") {
+		return "User"
+	}
+
+	// 1. Explicit Handoff Check
 	for _, a := range agents {
 		name := strings.ToLower(a.Name)
 		norm := normalize(a.Name)
