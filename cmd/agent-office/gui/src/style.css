@@ -791,8 +791,8 @@ body {
   position: fixed;
   top: 0;
   right: 0;
-  height: 100vh;
-  width: 60vw;
+  height: 100%;
+  width: 480px;
   max-width: 100%;
   background: rgba(13, 18, 30, 0.95);
   border-left: 1px solid var(--border-color);
@@ -800,9 +800,9 @@ body {
   z-index: 999;
   display: flex;
   flex-direction: column;
-  padding: 2.25rem 2rem;
+  padding: 2.25rem 2rem 7rem 2rem;
   gap: 1.25rem;
-  overflow-y: auto;
+  overflow: hidden;
   backdrop-filter: blur(24px);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
   transform: translateX(0);
@@ -815,19 +815,33 @@ body {
   pointer-events: none;
 }
 
-/* Scrollbar styling for the drawer */
-.add-agent-form::-webkit-scrollbar {
+/* Scrollable form body wrapper inside drawer modal */
+.form-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-right: 0.5rem;
+  /* Firefox Scrollbar Styling */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Scrollbar styling for the form body */
+.form-body::-webkit-scrollbar {
   width: 8px;
 }
 
-.add-agent-form::-webkit-scrollbar-thumb {
+.form-body::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 9999px;
 }
 
-.add-agent-form::-webkit-scrollbar-thumb:hover {
+.form-body::-webkit-scrollbar-thumb:hover {
   background: var(--accent-color);
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -840,6 +854,9 @@ body {
   color: #a5b4fc;
   border-left: 3px solid var(--accent-color);
   padding-left: 0.5rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
 }
 
 .form-row {
@@ -902,8 +919,17 @@ body {
 }
 
 .form-actions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem 2rem 2.25rem 2rem;
+  background: rgba(13, 18, 30, 0.98);
+  border-top: 1px solid var(--border-color);
   display: flex;
   gap: 0.75rem;
+  z-index: 10;
+  backdrop-filter: blur(8px);
 }
 
 .btn-ghost {
@@ -924,6 +950,7 @@ body {
   border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
+  flex-shrink: 0;
 }
 
 .form-error.hidden {

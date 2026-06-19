@@ -163,61 +163,63 @@
           <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
           <div id="add-agent-form" class="add-agent-form hidden">
             <h3 class="form-title" id="agent-form-title" data-i18n="agent_form_title_new">New Agent</h3>
-            <div class="form-row">
-              <label for="input-agent-name"><span data-i18n="label_agent_name">Name</span> <span class="required">*</span></label>
-              <input id="input-agent-name" type="text" placeholder="e.g. qa-engineer" autocomplete="off" data-i18n-placeholder="placeholder_agent_name">
-            </div>
-            <div class="form-row">
-              <label for="input-agent-role"><span data-i18n="label_agent_role">Role</span> <span class="required">*</span></label>
-              <input id="input-agent-role" type="text" placeholder="e.g. QA Engineer" autocomplete="off" data-i18n-placeholder="placeholder_agent_role">
-            </div>
-            <div class="form-row">
-              <label for="input-agent-color"><span data-i18n="label_agent_color">Theme Color</span></label>
-              <select id="input-agent-color">
-                <option value="#6366f1" style="color:#6366f1; font-weight:bold;">Indigo</option>
-                <option value="#a855f7" style="color:#a855f7; font-weight:bold;">Purple</option>
-                <option value="#3b82f6" style="color:#3b82f6; font-weight:bold;">Blue</option>
-                <option value="#10b981" style="color:#10b981; font-weight:bold;">Emerald</option>
-                <option value="#f59e0b" style="color:#f59e0b; font-weight:bold;">Amber</option>
-                <option value="#f43f5e" style="color:#f43f5e; font-weight:bold;">Rose</option>
-                <option value="#0d9488" style="color:#0d9488; font-weight:bold;">Teal</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label for="input-agent-avatar"><span data-i18n="label_agent_avatar">Avatar (Emoji or URL)</span></label>
-              <input id="input-agent-avatar" type="text" placeholder="e.g. 🤖 or image URL..." autocomplete="off" data-i18n-placeholder="placeholder_agent_avatar">
-            </div>
-            <div class="form-row">
-              <label for="input-agent-provider"><span data-i18n="label_agent_provider">AI Provider</span></label>
-              <select id="input-agent-provider">
-                <option value="">-- Select Provider --</option>
-                <option value="openai">OpenAI</option>
-                <option value="gemini">Gemini (Google)</option>
-                <option value="anthropic">Anthropic</option>
-                <option value="openrouter">OpenRouter</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label for="input-agent-token"><span data-i18n="label_agent_token">API Key / Token</span></label>
-              <div style="display: flex; gap: 0.5rem; width: 100%;">
-                <input id="input-agent-token" type="password" placeholder="Enter API Key to Login (Optional)" autocomplete="off" data-i18n-placeholder="placeholder_agent_token" style="flex: 1; margin: 0;">
-                <button id="btn-test-token" class="btn btn-ghost" type="button" style="flex: 0 0 auto; width: 120px; font-size: 0.8rem; margin: 0;" data-i18n="btn_test_token">Test API Key</button>
+            <div class="form-body">
+              <div class="form-row">
+                <label for="input-agent-name"><span data-i18n="label_agent_name">Name</span> <span class="required">*</span></label>
+                <input id="input-agent-name" type="text" placeholder="e.g. qa-engineer" autocomplete="off" data-i18n-placeholder="placeholder_agent_name">
               </div>
-              <div id="test-token-result" class="test-result hidden" style="margin-top: 0.25rem;"></div>
+              <div class="form-row">
+                <label for="input-agent-role"><span data-i18n="label_agent_role">Role</span> <span class="required">*</span></label>
+                <input id="input-agent-role" type="text" placeholder="e.g. QA Engineer" autocomplete="off" data-i18n-placeholder="placeholder_agent_role">
+              </div>
+              <div class="form-row">
+                <label for="input-agent-color"><span data-i18n="label_agent_color">Theme Color</span></label>
+                <select id="input-agent-color">
+                  <option value="#6366f1" style="color:#6366f1; font-weight:bold;">Indigo</option>
+                  <option value="#a855f7" style="color:#a855f7; font-weight:bold;">Purple</option>
+                  <option value="#3b82f6" style="color:#3b82f6; font-weight:bold;">Blue</option>
+                  <option value="#10b981" style="color:#10b981; font-weight:bold;">Emerald</option>
+                  <option value="#f59e0b" style="color:#f59e0b; font-weight:bold;">Amber</option>
+                  <option value="#f43f5e" style="color:#f43f5e; font-weight:bold;">Rose</option>
+                  <option value="#0d9488" style="color:#0d9488; font-weight:bold;">Teal</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="input-agent-avatar"><span data-i18n="label_agent_avatar">Avatar (Emoji or URL)</span></label>
+                <input id="input-agent-avatar" type="text" placeholder="e.g. 🤖 or image URL..." autocomplete="off" data-i18n-placeholder="placeholder_agent_avatar">
+              </div>
+              <div class="form-row">
+                <label for="input-agent-provider"><span data-i18n="label_agent_provider">AI Provider</span></label>
+                <select id="input-agent-provider">
+                  <option value="">-- Select Provider --</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Gemini (Google)</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openrouter">OpenRouter</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="input-agent-token"><span data-i18n="label_agent_token">API Key / Token</span></label>
+                <div style="display: flex; gap: 0.5rem; width: 100%;">
+                  <input id="input-agent-token" type="password" placeholder="Enter API Key to Login (Optional)" autocomplete="off" data-i18n-placeholder="placeholder_agent_token" style="flex: 1; margin: 0;">
+                  <button id="btn-test-token" class="btn btn-ghost" type="button" style="flex: 0 0 auto; width: 120px; font-size: 0.8rem; margin: 0;" data-i18n="btn_test_token">Test API Key</button>
+                </div>
+                <div id="test-token-result" class="test-result hidden" style="margin-top: 0.25rem;"></div>
+              </div>
+              <div class="form-row">
+                <label for="input-agent-model"><span data-i18n="label_agent_model">Model Name</span></label>
+                <input id="input-agent-model" type="text" placeholder="e.g. gpt-4o, gemini-1.5-pro, claude-3-5-sonnet" autocomplete="off" data-i18n-placeholder="placeholder_agent_model">
+              </div>
+              <div class="form-row">
+                <label for="input-agent-backstory" data-i18n="label_agent_backstory">Backstory</label>
+                <textarea id="input-agent-backstory" placeholder="Describe this agent's background and expertise..." data-i18n-placeholder="placeholder_agent_backstory"></textarea>
+              </div>
             </div>
-            <div class="form-row">
-              <label for="input-agent-model"><span data-i18n="label_agent_model">Model Name</span></label>
-              <input id="input-agent-model" type="text" placeholder="e.g. gpt-4o, gemini-1.5-pro, claude-3-5-sonnet" autocomplete="off" data-i18n-placeholder="placeholder_agent_model">
-            </div>
-            <div class="form-row">
-              <label for="input-agent-backstory" data-i18n="label_agent_backstory">Backstory</label>
-              <textarea id="input-agent-backstory" placeholder="Describe this agent's background and expertise..." data-i18n-placeholder="placeholder_agent_backstory"></textarea>
-            </div>
+            <div id="agent-form-error" class="form-error hidden"></div>
             <div class="form-actions">
               <button id="btn-submit-agent" class="btn btn-success" data-i18n="btn_submit_agent_new">Create Agent</button>
               <button id="btn-cancel-agent" class="btn btn-ghost" data-i18n="btn_cancel_agent">Cancel</button>
             </div>
-            <div id="agent-form-error" class="form-error hidden"></div>
           </div>
  
           <!-- Agents grid -->
