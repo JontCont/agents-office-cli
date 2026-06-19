@@ -4,5 +4,5 @@ environment/
 sessions/
 openspec/.vector-search.db*
 agent-office.yaml
-agent-office.exe
-agent-office.exe~
+*.exe
+*.exe~

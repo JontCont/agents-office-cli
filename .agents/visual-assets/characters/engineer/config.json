@@ -1,0 +1,11 @@
+{
+  "name": "engineer",
+  "spriteSheet": "sprite.png",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "animations": {
+    "idle": { "frames": [0, 1, 2, 3], "fps": 8, "loop": true },
+    "talking": { "frames": [4, 5, 6, 7], "fps": 12, "loop": true },
+    "thinking": { "frames": [8, 9, 10], "fps": 6, "loop": true }
+  }
+}

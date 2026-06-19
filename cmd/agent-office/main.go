@@ -594,6 +594,48 @@ func handleGUI() {
 		_ = json.NewEncoder(w).Encode(skills)
 	})
 
+	// REST: GET /api/visual-assets/characters
+	mux.HandleFunc("/api/visual-assets/characters", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		charactersDir := filepath.Join(".agents", "visual-assets", "characters")
+		
+		// If directory does not exist, return empty array
+		if _, err := os.Stat(charactersDir); os.IsNotExist(err) {
+			_ = json.NewEncoder(w).Encode([]string{})
+			return
+		}
+		
+		var characters []string
+		files, err := os.ReadDir(charactersDir)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to read visual assets directory"})
+			return
+		}
+		
+		for _, file := range files {
+			if file.IsDir() {
+				// Verify if config.json exists to qualify as a valid character
+				configPath := filepath.Join(charactersDir, file.Name(), "config.json")
+				if _, err := os.Stat(configPath); err == nil {
+					characters = append(characters, file.Name())
+				}
+			}
+		}
+		
+		if characters == nil {
+			characters = []string{}
+		}
+		_ = json.NewEncoder(w).Encode(characters)
+	})
+
+	// Serve visual assets from local filesystem .agents/visual-assets/
+	mux.Handle("/.agents/visual-assets/", http.StripPrefix("/.agents/visual-assets/", http.FileServer(http.Dir(".agents/visual-assets"))))
+
 	// REST: GET /api/session/latest
 	mux.HandleFunc("/api/session/latest", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -703,15 +745,16 @@ func handlePostAgents(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateAgentRequest struct {
-	OriginalName string `json:"originalName"`
-	Name         string `json:"name"`
-	Role         string `json:"role"`
-	Backstory    string `json:"backstory"`
-	Color        string `json:"color"`
-	Avatar       string `json:"avatar"`
-	Provider     string `json:"provider"`
-	Model        string `json:"model"`
-	Token        string `json:"token"`
+	OriginalName    string `json:"originalName"`
+	Name            string `json:"name"`
+	Role            string `json:"role"`
+	Backstory       string `json:"backstory"`
+	Color           string `json:"color"`
+	Avatar          string `json:"avatar"`
+	Provider        string `json:"provider"`
+	Model           string `json:"model"`
+	Token           string `json:"token"`
+	VisualCharacter string `json:"visual_character,omitempty"`
 }
 
 func handlePutAgents(w http.ResponseWriter, r *http.Request) {
@@ -770,6 +813,7 @@ func handlePutAgents(w http.ResponseWriter, r *http.Request) {
 	cfg.Agents[foundIdx].Provider = body.Provider
 	cfg.Agents[foundIdx].Model = body.Model
 	cfg.Agents[foundIdx].Token = body.Token
+	cfg.Agents[foundIdx].VisualCharacter = body.VisualCharacter
 
 	if body.Token != "" && body.Provider != "" {
 		_ = workforce.SaveToken(workforce.AIProvider(body.Provider), body.Token)

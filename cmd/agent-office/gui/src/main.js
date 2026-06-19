@@ -20,7 +20,11 @@ const translations = {
     tab_run: "Run Thread",
     tab_logs: "Logs",
     tab_agents: "Agents",
+    tab_activity: "Activity",
     tab_settings: "Settings",
+    activity_header: "Activity",
+    label_agent_visual_character: "Visual Character",
+    visual_character_none: "(none - use emoji)",
     logs_header: "Session Logs",
     category_workforce: "Workforce",
     category_execution: "Execution",
@@ -99,7 +103,11 @@ const translations = {
     tab_run: "運行線程",
     tab_logs: "日誌",
     tab_agents: "智能體配置",
+    tab_activity: "活動狀態",
     tab_settings: "設定",
+    activity_header: "活動狀態",
+    label_agent_visual_character: "視覺角色",
+    visual_character_none: "(無 - 使用頭像 Emoji)",
     logs_header: "運行日誌",
     category_workforce: "團隊成員",
     category_execution: "執行狀態",
@@ -257,8 +265,10 @@ const tabSettings = document.getElementById('tab-settings');
 const viewRun   = document.getElementById('view-run');
 const viewLogs  = document.getElementById('view-logs');
 const viewAgents = document.getElementById('view-agents');
+const viewActivity = document.getElementById('view-activity');
 const viewSettings = document.getElementById('view-settings');
 const tabLogContentPre = document.getElementById('tab-log-content-pre');
+const tabActivity = document.getElementById('tab-activity');
 
 // Settings panel
 const inputUsername = document.getElementById('input-username');
@@ -273,6 +283,7 @@ const inputProvider  = document.getElementById('input-agent-provider');
 const inputToken     = document.getElementById('input-agent-token');
 const inputModel     = document.getElementById('input-agent-model');
 const inputBackstory = document.getElementById('input-agent-backstory');
+const inputVisualCharacter = document.getElementById('input-agent-visual-character');
 const btnSubmitAgent = document.getElementById('btn-submit-agent');
 const btnCancelAgent = document.getElementById('btn-cancel-agent');
 const btnTestToken     = document.getElementById('btn-test-token');
@@ -314,6 +325,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initTheme();
   setupSettings();
   fetchAndApplyUsername();
+  fetchAndApplyVisualCharacters();
 });
 
 async function initTotalAgents() {
@@ -715,6 +727,8 @@ function disableAllControls() {
 
 // ─── Server Event Router ──────────────────────────────────────────────────────
 function handleServerEvent(evt) {
+  document.dispatchEvent(new CustomEvent('workforce-event', { detail: evt }));
+
   if (evt.run_id) {
     currentRunID = evt.run_id;
     runIdVal.textContent = evt.run_id;
@@ -952,6 +966,9 @@ function setupTabs() {
   tabRun.addEventListener('click', () => switchTab('run'));
   tabLogs.addEventListener('click', () => switchTab('logs'));
   tabAgents.addEventListener('click', () => switchTab('agents'));
+  if (tabActivity) {
+    tabActivity.addEventListener('click', () => switchTab('activity'));
+  }
   if (tabSettings) {
     tabSettings.addEventListener('click', () => switchTab('settings'));
   }
@@ -961,10 +978,12 @@ function switchTab(tab) {
   tabRun.classList.remove('tab-btn--active');
   tabLogs.classList.remove('tab-btn--active');
   tabAgents.classList.remove('tab-btn--active');
+  if (tabActivity) tabActivity.classList.remove('tab-btn--active');
   if (tabSettings) tabSettings.classList.remove('tab-btn--active');
   viewRun.classList.remove('tab-view--active');
   viewLogs.classList.remove('tab-view--active');
   viewAgents.classList.remove('tab-view--active');
+  if (viewActivity) viewActivity.classList.remove('tab-view--active');
   if (viewSettings) viewSettings.classList.remove('tab-view--active');
 
   if (tab === 'run') {
@@ -978,6 +997,12 @@ function switchTab(tab) {
     tabAgents.classList.add('tab-btn--active');
     viewAgents.classList.add('tab-view--active');
     loadAgents();
+  } else if (tab === 'activity') {
+    if (tabActivity) tabActivity.classList.add('tab-btn--active');
+    if (viewActivity) viewActivity.classList.add('tab-view--active');
+    if (typeof window.initializeActivityView === 'function') {
+      window.initializeActivityView();
+    }
   } else if (tab === 'settings') {
     if (tabSettings) tabSettings.classList.add('tab-btn--active');
     if (viewSettings) viewSettings.classList.add('tab-view--active');
@@ -1002,6 +1027,7 @@ function setupAgentForm() {
     addAgentForm.classList.add('slide-in');
     if (drawerBackdrop) drawerBackdrop.classList.remove('hidden');
     btnAddAgent.disabled = true;
+    if (inputVisualCharacter) inputVisualCharacter.value = '';
     inputName.focus();
   });
 
@@ -1097,7 +1123,8 @@ function setupAgentForm() {
       const provider = btnEdit.getAttribute('data-provider');
       const model = btnEdit.getAttribute('data-model');
       const token = btnEdit.getAttribute('data-token');
-      startEditAgent(name, role, backstory, color, avatar, provider, model, token);
+      const visualCharacter = btnEdit.getAttribute('data-visual-character') || '';
+      startEditAgent(name, role, backstory, color, avatar, provider, model, token, visualCharacter);
     } else if (btnDelete) {
       const name = btnDelete.getAttribute('data-name');
       deleteAgent(name);
@@ -1105,7 +1132,7 @@ function setupAgentForm() {
   });
 }
 
-function startEditAgent(name, role, backstory, color, avatar, provider, model, token) {
+function startEditAgent(name, role, backstory, color, avatar, provider, model, token, visualCharacter) {
   editingAgentName = name;
   addAgentForm.classList.remove('hidden');
   addAgentForm.classList.add('slide-in');
@@ -1128,6 +1155,9 @@ function startEditAgent(name, role, backstory, color, avatar, provider, model, t
   const inputAvatar = document.getElementById('input-agent-avatar');
   if (inputAvatar) {
     inputAvatar.value = avatar || '';
+  }
+  if (inputVisualCharacter) {
+    inputVisualCharacter.value = visualCharacter || '';
   }
   
   // Update UI texts
@@ -1183,6 +1213,9 @@ function hideAgentForm() {
   const inputAvatar = document.getElementById('input-agent-avatar');
   if (inputAvatar) {
     inputAvatar.value = '';
+  }
+  if (inputVisualCharacter) {
+    inputVisualCharacter.value = '';
   }
   btnAddAgent.disabled = false;
   
@@ -1252,7 +1285,7 @@ function renderAgentsTable(agents) {
           <div class="agent-card-role" style="background: ${hexToRgba(activeColor, 0.12)}; border: 1px solid ${borderGlow}; color: ${activeColor};">${escapeHtml(a.role)}</div>
         </div>
         <div class="agent-card-actions">
-          <button class="btn-icon btn-edit" title="${editTitle}" data-name="${escapeHtml(a.name)}" data-role="${escapeHtml(a.role)}" data-backstory="${escapeHtml(a.backstory || '')}" data-color="${escapeHtml(a.color || '')}" data-avatar="${escapeHtml(a.avatar || '')}" data-provider="${escapeHtml(a.provider || '')}" data-model="${escapeHtml(a.model || '')}" data-token="${escapeHtml(a.token || '')}">
+          <button class="btn-icon btn-edit" title="${editTitle}" data-name="${escapeHtml(a.name)}" data-role="${escapeHtml(a.role)}" data-backstory="${escapeHtml(a.backstory || '')}" data-color="${escapeHtml(a.color || '')}" data-avatar="${escapeHtml(a.avatar || '')}" data-provider="${escapeHtml(a.provider || '')}" data-model="${escapeHtml(a.model || '')}" data-token="${escapeHtml(a.token || '')}" data-visual-character="${escapeHtml(a.visual_character || '')}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
           </button>
           <button class="btn-icon btn-delete" title="${deleteTitle}" data-name="${escapeHtml(a.name)}" style="color: var(--danger-color); margin-left: 0.25rem;">
@@ -1285,6 +1318,7 @@ async function submitAgent() {
   const provider = inputProvider.value;
   const token = inputToken.value.trim();
   const model = inputModel.value.trim();
+  const visual_character = inputVisualCharacter ? inputVisualCharacter.value : '';
 
   agentFormError.classList.add('hidden');
 
@@ -1307,13 +1341,14 @@ async function submitAgent() {
   inputToken.disabled = true;
   inputModel.disabled = true;
   inputBackstory.disabled = true;
+  if (inputVisualCharacter) inputVisualCharacter.disabled = true;
   btnCancelAgent.disabled = true;
   if (btnTestToken) btnTestToken.disabled = true;
 
   try {
     let url = '/api/agents';
     let method = 'POST';
-    let payload = { name, role, backstory, color, avatar, provider, token, model };
+    let payload = { name, role, backstory, color, avatar, provider, token, model, visual_character };
     
     if (editingAgentName) {
       method = 'PUT';
@@ -1350,6 +1385,7 @@ async function submitAgent() {
     inputToken.disabled = false;
     inputModel.disabled = false;
     inputBackstory.disabled = false;
+    if (inputVisualCharacter) inputVisualCharacter.disabled = false;
     btnCancelAgent.disabled = false;
     if (btnTestToken) btnTestToken.disabled = false;
   }
@@ -1824,4 +1860,25 @@ function fetchAndApplyUsername() {
       currentUsername = data.username || '';
     })
     .catch(() => {});
+}
+
+function fetchAndApplyVisualCharacters() {
+  if (!inputVisualCharacter) return;
+  fetch('/api/visual-assets/characters')
+    .then(res => {
+      if (res.ok) return res.json();
+      throw new Error();
+    })
+    .then(data => {
+      while (inputVisualCharacter.options.length > 1) {
+        inputVisualCharacter.remove(1);
+      }
+      data.forEach(char => {
+        const opt = document.createElement('option');
+        opt.value = char;
+        opt.textContent = char;
+        inputVisualCharacter.appendChild(opt);
+      });
+    })
+    .catch(err => console.error('Failed to load visual characters:', err));
 }

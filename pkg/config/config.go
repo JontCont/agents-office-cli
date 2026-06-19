@@ -15,11 +15,12 @@ type AgentConfig struct {
 	Skills    []string `yaml:"skills" json:"skills"`
 	Tools     []string `yaml:"tools" json:"tools"`
 	Hooks     []string `yaml:"hooks" json:"hooks"`
-	Color     string   `yaml:"color" json:"color"`
-	Avatar    string   `yaml:"avatar" json:"avatar"`
-	Provider  string   `yaml:"provider" json:"provider"`
-	Model     string   `yaml:"model" json:"model"`
-	Token     string   `yaml:"token,omitempty" json:"token,omitempty"`
+	Color           string   `yaml:"color" json:"color"`
+	Avatar          string   `yaml:"avatar" json:"avatar"`
+	VisualCharacter string   `yaml:"visual_character,omitempty" json:"visual_character,omitempty"`
+	Provider        string   `yaml:"provider" json:"provider"`
+	Model           string   `yaml:"model" json:"model"`
+	Token           string   `yaml:"token,omitempty" json:"token,omitempty"`
 }
 
 type Config struct {
