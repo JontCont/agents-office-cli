@@ -20,11 +20,69 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* Firefox Scrollbar Styling */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Custom Global Webkit Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Custom scrollbar styling for side panel, agent wrappers and modals */
+.side-panel::-webkit-scrollbar,
+.agents-table-wrapper::-webkit-scrollbar,
+.agents-grid-wrapper::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.side-panel::-webkit-scrollbar-thumb,
+.agents-table-wrapper::-webkit-scrollbar-thumb,
+.agents-grid-wrapper::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 9999px;
+}
+
+.side-panel::-webkit-scrollbar-thumb:hover,
+.agents-table-wrapper::-webkit-scrollbar-thumb:hover,
+.agents-grid-wrapper::-webkit-scrollbar-thumb:hover,
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 body {
   background-color: var(--bg-color);
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
   color: var(--text-primary);
@@ -113,14 +171,53 @@ body {
   text-transform: uppercase;
 }
 
-.state-queued { background: rgba(156, 163, 175, 0.15); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.3); }
-.state-running { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
-.state-interrupting { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-.state-interrupted { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-.state-resuming { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-.state-completed { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(10, 185, 129, 0.4); }
-.state-failed { background: rgba(239, 68, 68, 0.25); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
-.state-cancelled { background: rgba(107, 114, 128, 0.2); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); }
+.state-queued {
+  background: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.state-running {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.state-interrupting {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.state-interrupted {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.state-resuming {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.state-completed {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(10, 185, 129, 0.4);
+}
+
+.state-failed {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.state-cancelled {
+  background: rgba(107, 114, 128, 0.2);
+  color: #9ca3af;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
 
 /* Connection status dot */
 .connection-status {
@@ -156,9 +253,20 @@ body {
 }
 
 @keyframes pulse {
-  0% { transform: scale(0.95); opacity: 0.5; }
-  50% { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(0.95); opacity: 0.5; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.95);
+    opacity: 0.5;
+  }
 }
 
 /* App content layout */
@@ -217,13 +325,25 @@ body {
   scroll-behavior: smooth;
 }
 
+.thread-messages {
+  scrollbar-color: rgba(99, 102, 241, 0.25) transparent;
+}
+
 .thread-messages::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .thread-messages::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  background: rgba(99, 102, 241, 0.2);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 9999px;
+}
+
+.thread-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 /* Chat bubble aesthetics */
@@ -303,7 +423,10 @@ body {
   border: 1px solid rgba(139, 92, 246, 0.25);
   color: #d8b4fe;
 }
-.msg-planner .msg-header { color: #c084fc; }
+
+.msg-planner .msg-header {
+  color: #c084fc;
+}
 
 .msg-coder {
   align-self: flex-start;
@@ -311,7 +434,10 @@ body {
   border: 1px solid rgba(59, 130, 246, 0.25);
   color: #93c5fd;
 }
-.msg-coder .msg-header { color: #60a5fa; }
+
+.msg-coder .msg-header {
+  color: #60a5fa;
+}
 
 .msg-reviewer {
   align-self: flex-start;
@@ -319,7 +445,10 @@ body {
   border: 1px solid rgba(20, 184, 166, 0.25);
   color: #99f6e4;
 }
-.msg-reviewer .msg-header { color: #2dd4bf; }
+
+.msg-reviewer .msg-header {
+  color: #2dd4bf;
+}
 
 .msg-supervisor {
   align-self: flex-end;
@@ -327,7 +456,10 @@ body {
   border: 1px solid rgba(236, 72, 153, 0.35);
   color: #fbcfe8;
 }
-.msg-supervisor .msg-header { color: #f472b6; }
+
+.msg-supervisor .msg-header {
+  color: #f472b6;
+}
 
 /* Tool call / return bubble */
 .msg-tool-call {
@@ -339,7 +471,10 @@ body {
   font-family: var(--font-mono);
   font-size: 0.85rem;
 }
-.msg-tool-call .msg-header { color: #fbbf24; }
+
+.msg-tool-call .msg-header {
+  color: #fbbf24;
+}
 
 .msg-tool-return {
   align-self: flex-start;
@@ -350,7 +485,10 @@ body {
   font-family: var(--font-mono);
   font-size: 0.85rem;
 }
-.msg-tool-return .msg-header { color: #34d399; }
+
+.msg-tool-return .msg-header {
+  color: #34d399;
+}
 
 /* Inline status capsule */
 .status-capsule {
@@ -476,6 +614,7 @@ body {
   background: var(--accent-color);
   color: #fff;
 }
+
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
   transform: translateY(-1px);
@@ -487,6 +626,7 @@ body {
   border-color: rgba(239, 68, 68, 0.3);
   color: #f87171;
 }
+
 .btn-danger:hover:not(:disabled) {
   background: var(--danger-hover);
   color: #fff;
@@ -500,6 +640,7 @@ body {
   color: #fff;
   width: 100%;
 }
+
 .btn-success:hover:not(:disabled) {
   background: var(--success-hover);
   transform: translateY(-1px);
@@ -651,7 +792,7 @@ body {
   top: 0;
   right: 0;
   height: 100vh;
-  width: 480px;
+  width: 60vw;
   max-width: 100%;
   background: rgba(13, 18, 30, 0.95);
   border-left: 1px solid var(--border-color);
@@ -676,12 +817,20 @@ body {
 
 /* Scrollbar styling for the drawer */
 .add-agent-form::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .add-agent-form::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 9999px;
+}
+
+.add-agent-form::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 
@@ -762,6 +911,7 @@ body {
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
 }
+
 .btn-ghost:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
@@ -996,16 +1146,19 @@ body {
   margin-top: 0.4rem;
   width: 100%;
 }
+
 .test-result.success {
   color: var(--success-color);
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
+
 .test-result.error {
   color: var(--danger-color);
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.25);
 }
+
 .test-result.hidden {
   display: none;
 }
@@ -1067,8 +1220,8 @@ body {
 .agent-card:hover {
   transform: translateY(-5px);
   border-color: var(--agent-border);
-  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.4), 
-              0 0 20px -2px var(--agent-glow);
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.4),
+    0 0 20px -2px var(--agent-glow);
 }
 
 .agent-card:hover::before {
@@ -1238,18 +1391,26 @@ body {
 }
 
 @keyframes indicatorBounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-6px); }
+
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-50%) translateY(-6px);
+  }
 }
 
 /* ─── Responsive Web Design (RWD) Media Queries ───────────────────────────── */
 @media (max-width: 1024px) {
+
   /* Stack app content layout vertically */
   body {
     overflow-y: auto;
     height: auto;
   }
-  
+
   .app-container {
     height: auto;
     min-height: 100vh;
@@ -1262,18 +1423,18 @@ body {
     gap: 1rem;
     height: auto;
   }
-  
+
   .thread-panel {
     flex: none;
     height: 550px;
   }
-  
+
   .side-panel {
     flex: none;
     overflow-y: visible;
     height: auto;
   }
-  
+
   /* Make header and metadata wrap nicely */
   .app-header {
     flex-direction: column;
@@ -1281,19 +1442,19 @@ body {
     padding: 1rem;
     gap: 1rem;
   }
-  
+
   .run-info {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.75rem;
     width: 100%;
   }
-  
+
   .logo-area {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .connection-status {
     align-self: flex-end;
   }
@@ -1306,7 +1467,7 @@ body {
   color: transparent !important;
 }
 
-.btn-loading > * {
+.btn-loading>* {
   opacity: 0 !important;
 }
 
@@ -1330,10 +1491,8 @@ body {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
-
-
-
