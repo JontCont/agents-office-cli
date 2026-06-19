@@ -65,6 +65,10 @@
               WebSocket connected. Run thread is waiting to stream events...
             </div>
           </div>
+          <!-- Floating indicator -->
+          <div id="new-messages-indicator" class="new-messages-indicator hidden">
+            <span data-i18n="new_messages_badge">New messages below ↓</span>
+          </div>
         </section>
 
         <!-- Right Panel: Telemetry & Controls -->
@@ -156,6 +160,7 @@
               <span data-i18n="btn_add_agent">Add Agent</span>
             </button>
           </div>          <!-- Add Agent inline form (hidden by default) -->
+          <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
           <div id="add-agent-form" class="add-agent-form hidden">
             <h3 class="form-title" id="agent-form-title" data-i18n="agent_form_title_new">New Agent</h3>
             <div class="form-row">
@@ -215,23 +220,11 @@
             <div id="agent-form-error" class="form-error hidden"></div>
           </div>
  
-          <!-- Agents table -->
-          <div class="agents-table-wrapper">
-            <table id="agents-table" class="agents-table">
-              <thead>
-                <tr>
-                  <th data-i18n="th_name">Name</th>
-                  <th data-i18n="th_role">Role</th>
-                  <th data-i18n="th_backstory">Backstory</th>
-                  <th data-i18n="th_actions">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="agents-tbody">
-                <tr class="agents-empty-row">
-                  <td colspan="4" data-i18n="agents_loading">Loading agents...</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Agents grid -->
+          <div class="agents-grid-wrapper">
+            <div id="agents-tbody" class="agents-grid">
+              <div class="agents-empty" data-i18n="agents_loading">Loading agents...</div>
+            </div>
           </div>
         </section>
       </div>

@@ -626,28 +626,64 @@ body {
   border-radius: 6px;
 }
 
-/* ─── Add Agent Form ───────────────────────────────────────────────────────── */
+/* ─── Slide-over Drawer Styles & Backdrop ─────────────────────────────────── */
+.drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 998;
+  opacity: 1;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+}
+
+.drawer-backdrop.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .add-agent-form {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  background: rgba(99, 102, 241, 0.04);
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 480px;
+  max-width: 100%;
+  background: rgba(13, 18, 30, 0.95);
+  border-left: 1px solid var(--border-color);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.6);
+  z-index: 999;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  padding: 2.25rem 2rem;
+  gap: 1.25rem;
+  overflow-y: auto;
+  backdrop-filter: blur(24px);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  transform: translateX(0);
 }
 
 .add-agent-form.hidden {
-  display: none;
+  display: flex;
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
-.add-agent-form.slide-in {
-  animation: slideDown 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+/* Scrollbar styling for the drawer */
+.add-agent-form::-webkit-scrollbar {
+  width: 6px;
 }
 
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+.add-agent-form::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
 }
+
 
 .form-title {
   font-size: 0.9rem;
@@ -973,3 +1009,331 @@ body {
 .test-result.hidden {
   display: none;
 }
+
+/* ─── Agents Grid & Cards (Modern Glassmorphic Upgrade) ───────────────────── */
+.agents-grid-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 0;
+}
+
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.agents-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 4rem 0;
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
+
+.agent-card {
+  background: rgba(17, 24, 39, 0.35);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(12px);
+}
+
+/* Subtle background glow from agent's custom color */
+.agent-card::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--agent-glow) 0%, transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.agent-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--agent-border);
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.4), 
+              0 0 20px -2px var(--agent-glow);
+}
+
+.agent-card:hover::before {
+  opacity: 0.8;
+}
+
+.agent-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+  z-index: 2;
+}
+
+.agent-card-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid var(--agent-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.agent-card:hover .agent-card-avatar {
+  transform: scale(1.05);
+}
+
+.agent-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.agent-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  overflow: hidden;
+}
+
+.agent-card-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.agent-card-role {
+  display: inline-block;
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  width: fit-content;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.agent-card-actions {
+  display: flex;
+  gap: 0.25rem;
+  align-self: flex-start;
+}
+
+.agent-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 2;
+}
+
+.agent-card-backstory {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.agent-card:hover .agent-card-backstory {
+  color: #d1d5db;
+}
+
+.agent-card-footer {
+  border-top: 1px solid var(--border-color);
+  padding-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  position: relative;
+  z-index: 2;
+}
+
+.agent-card-provider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.provider-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.agent-card-provider-badge {
+  font-size: 0.725rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+/* ─── Smart Scroll Floating Indicator ─────────────────────────────────────── */
+.thread-panel {
+  position: relative;
+}
+
+.new-messages-indicator {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: rgba(99, 102, 241, 0.95);
+  color: #ffffff;
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  backdrop-filter: blur(8px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: indicatorBounce 2s infinite;
+}
+
+.new-messages-indicator:hover {
+  background: rgba(79, 70, 229, 0.98);
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+}
+
+.new-messages-indicator.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(10px);
+}
+
+@keyframes indicatorBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+/* ─── Responsive Web Design (RWD) Media Queries ───────────────────────────── */
+@media (max-width: 1024px) {
+  /* Stack app content layout vertically */
+  body {
+    overflow-y: auto;
+    height: auto;
+  }
+  
+  .app-container {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .app-content {
+    flex-direction: column;
+    overflow-y: visible;
+    padding: 1rem;
+    gap: 1rem;
+    height: auto;
+  }
+  
+  .thread-panel {
+    flex: none;
+    height: 550px;
+  }
+  
+  .side-panel {
+    flex: none;
+    overflow-y: visible;
+    height: auto;
+  }
+  
+  /* Make header and metadata wrap nicely */
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .run-info {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    width: 100%;
+  }
+  
+  .logo-area {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .connection-status {
+    align-self: flex-end;
+  }
+}
+
+/* Button loading state with spinner */
+.btn-loading {
+  position: relative !important;
+  pointer-events: none !important;
+  color: transparent !important;
+}
+
+.btn-loading > * {
+  opacity: 0 !important;
+}
+
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-top: -8px;
+  margin-left: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: button-loading-spinner 0.6s linear infinite;
+  z-index: 10;
+}
+
+@keyframes button-loading-spinner {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+

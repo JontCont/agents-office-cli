@@ -96,47 +96,51 @@ tests:
 
 ---
 ### Requirement: Agents management panel in GUI
-The system SHALL add an Agents tab to the GUI companion dashboard. The tab SHALL display a table of all configured agents (name, role, backstory) with Edit and Delete actions for each row, and an Add Agent button that reveals an inline form for agent creation.
-- Clicking Edit SHALL populate the inline form with the agent's current values and switch the form to Edit mode.
-- Submitting the form in Edit mode SHALL send a `PUT /api/agents` request and refresh the table on success.
-- Clicking Delete SHALL trigger a confirmation and send a `DELETE /api/agents?name=<name>` request on approval, refreshing the table on success.
+The system SHALL add an Agents tab to the GUI companion dashboard. The tab SHALL display a grid of cards of all configured agents (name, role, backstory, provider, model) with Edit and Delete actions for each card, and an Add Agent button that slides in a drawer-form from the right edge for agent creation/editing.
+- The drawer-form MUST slide in and out smoothly and support an independent scrollbar (`overflow-y: auto`) to ensure action buttons are never cut off.
+- Selecting a provider in the AI Provider dropdown SHALL automatically pre-populate a default model name in the Model Name field.
+- During form submission or connection testing, the corresponding action button SHALL show visual loading feedback and be disabled to prevent duplicate submissions.
+- Clicking Edit SHALL populate the drawer-form with the agent's current values and open it.
+- Submitting the form in Edit mode SHALL send a `PUT /api/agents` request and refresh the grid on success.
+- Clicking Delete SHALL trigger a confirmation and send a `DELETE /api/agents?name=<name>` request on approval, refreshing the grid on success.
 
 #### Scenario: Agents tab displays configured agents
 - **WHEN** the user opens the GUI and clicks the Agents tab
-- **THEN** the GUI SHALL fetch `GET /api/agents` and display each agent's name, role, and backstory in a table with Edit and Delete icon buttons
+- **THEN** the GUI SHALL fetch `GET /api/agents` and display each agent's name, role, and backstory in a card grid with Edit and Delete icon buttons
 
-#### Scenario: Add Agent form submits and refreshes list
-- **WHEN** the user fills the Add Agent form and clicks Submit
-- **THEN** the GUI SHALL POST to `/api/agents` and, on HTTP 201, refresh the agent table to include the new agent
+#### Scenario: Add Agent drawer opens, pre-fills model, and submits successfully
+- **WHEN** the user clicks Add Agent
+- **THEN** the drawer SHALL slide in from the right
+- **AND WHEN** the user selects "Anthropic" as AI Provider
+- **THEN** the Model Name input field SHALL automatically be pre-filled with "claude-3-haiku"
+- **AND WHEN** the user fills the rest of the form and clicks Submit
+- **THEN** the Submit button SHALL show loading state
+- **AND** the GUI SHALL POST to `/api/agents` and, on HTTP 201, slide the drawer out and refresh the agent grid to include the new agent
 
-#### Scenario: Edit Agent form submits and refreshes list
-- **WHEN** the user clicks Edit on an agent, modifies fields, and clicks Submit
-- **THEN** the GUI SHALL PUT to `/api/agents` and, on HTTP 200, refresh the agent table to show the updated values
+#### Scenario: Edit Agent drawer opens and submits changes
+- **WHEN** the user clicks Edit on an agent card
+- **THEN** the drawer SHALL slide in from the right populated with current agent values
+- **AND WHEN** the user modifies fields and clicks Submit
+- **THEN** the Submit button SHALL show loading state
+- **AND** the GUI SHALL PUT to `/api/agents` and, on HTTP 200, slide the drawer out and refresh the agent grid to show the updated values
 
 #### Scenario: Delete Agent triggers confirmation and refreshes list
-- **WHEN** the user clicks Delete on an agent and confirms
-- **THEN** the GUI SHALL send `DELETE /api/agents?name=<name>` and, on HTTP 200, refresh the agent table to remove the deleted agent
+- **WHEN** the user clicks Delete on an agent card and confirms
+- **THEN** the GUI SHALL send `DELETE /api/agents?name=<name>` and, on HTTP 200, refresh the agent grid to remove the deleted agent
+
 
 <!-- @trace
-source: agent-office-feature-completion
-updated: 2026-06-10
+source: optimize-frontend-uiux
+updated: 2026-06-19
 code:
-  - pkg/workforce/provider.go
-  - pkg/config/config.go
-  - .agent-office-sessions/2026-06-10-run-75549.json
-  - .agent-office-sessions/2026-06-10-run-79450.json
-  - pkg/workforce/server.go
-  - agent-office.yaml
-  - cmd/agent-office/gui/src/style.css
-  - agent-office.exe
-  - .agent-office-token
   - cmd/agent-office/gui/index.html
-  - cmd/agent-office/main.go
-  - agent-office.exe~
+  - cmd/agent-office/gui/src/style.css
+  - skills-lock.json
   - cmd/agent-office/gui/src/main.js
-tests:
-  - pkg/workforce/provider_test.go
-  - pkg/config/config_test.go
+  - .agents/skills/frontend-design/SKILL.md
+  - .autohand/skills/frontend-design/SKILL.md
+  - .autohand/skills/frontend-design
+  - go.mod
 -->
 
 ---
@@ -320,4 +324,38 @@ code:
   - cmd/agent-office/main.go
 tests:
   - pkg/config/config_test.go
+-->
+
+---
+### Requirement: Smart auto-scrolling and responsive layouts
+The companion GUI dashboard SHALL dynamically adapt its scroll behavior and grid layout depending on user state and screen dimensions.
+- The thread view SHALL only automatically scroll to the bottom upon receiving new message events if the user's scroll position is already at the bottom (within a 100px buffer).
+- If the user has scrolled up, the system SHALL NOT force scroll-to-bottom, and SHALL display a floating badge indicating new messages are available.
+- The main application layout elements (run thread panel, telemetry dashboard, control panel) SHALL stack vertically in a single column when the viewport width is 1024px or less, ensuring usability on small screens.
+
+#### Scenario: Auto-scroll is bypassed when user scrolls up
+- **WHEN** the user is viewing older logs (scrolled up more than 100px from bottom) and a new `agent.speak` event is received
+- **THEN** the scroll position of the thread view SHALL NOT change
+- **AND** a floating badge saying "New messages below ?? SHALL be displayed
+
+#### Scenario: Auto-scroll occurs when user is at the bottom
+- **WHEN** the user is at the bottom of the log view and a new `agent.speak` event is received
+- **THEN** the thread view SHALL scroll smoothly to the bottom to display the new message
+
+#### Scenario: Responsive layout wraps on smaller screens
+- **WHEN** the browser window width is resized to 1000px
+- **THEN** the layout container SHALL stack its panels vertically
+
+<!-- @trace
+source: optimize-frontend-uiux
+updated: 2026-06-19
+code:
+  - cmd/agent-office/gui/index.html
+  - cmd/agent-office/gui/src/style.css
+  - skills-lock.json
+  - cmd/agent-office/gui/src/main.js
+  - .agents/skills/frontend-design/SKILL.md
+  - .autohand/skills/frontend-design/SKILL.md
+  - .autohand/skills/frontend-design
+  - go.mod
 -->

@@ -71,7 +71,8 @@ const translations = {
     help_step_3_desc: "Watch the agents collaborate in real-time. The Telemetry Dashboard tracks your active token usage, estimated cost, and latency for the current session.",
     help_step_4_title: "4. Supervisor Interruption",
     help_step_4_desc: "If the agents go off track, click Interrupt Run. The process will pause, allowing you to type guidance into the feedback box. Click Resume Execution to inject your feedback and steer the agents.",
-    step_loading: "Loading..."
+    step_loading: "Loading...",
+    new_messages_badge: "New messages below ↓"
   },
   zh: {
     logo_subtitle: "協同面板",
@@ -134,7 +135,8 @@ const translations = {
     help_step_3_desc: "實時觀察智能體的協同討論。數據面板會跟蹤當前會話的 active token 使用量、估算成本和延遲時長。",
     help_step_4_title: "4. 督導中斷與引導",
     help_step_4_desc: "如果智能體討論偏離軌道，點擊「中斷運行」。進程將暫停，允許您在反饋框中輸入引導。點擊「恢復執行」以注入您的反饋並引導智能體。",
-    step_loading: "載入中..."
+    step_loading: "載入中...",
+    new_messages_badge: "下方有新訊息 ↓"
   }
 };
 
@@ -247,6 +249,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupAgentForm();
   setupModal();
   setupLangToggle();
+  setupSmartScroll();
 });
 
 async function initTotalAgents() {
@@ -320,7 +323,23 @@ btnInterrupt.addEventListener('click', () => sendCommand('run.interrupt'));
 btnAbort.addEventListener('click', () => sendCommand('run.abort'));
 btnResume.addEventListener('click', () => {
   const guidance = guidanceInput.value.trim();
-  if (currentRunState === 'QUEUED') {
+
+  // Disable inputs and buttons
+  btnResume.disabled = true;
+  guidanceInput.disabled = true;
+  btnResume.classList.add('btn-loading');
+
+  const textEl = document.getElementById('btn-resume-text');
+  const isQueued = currentRunState === 'QUEUED';
+  if (textEl) {
+    if (isQueued) {
+      textEl.textContent = currentLanguage === 'zh' ? '啟動中...' : 'Starting...';
+    } else {
+      textEl.textContent = currentLanguage === 'zh' ? '恢復中...' : 'Resuming...';
+    }
+  }
+
+  if (isQueued) {
     sendCommand('run.start', guidance);
   } else {
     sendCommand('run.resume', guidance);
@@ -497,6 +516,10 @@ function updateRunState(state) {
   stateVal.textContent = state;
   stateVal.className = 'value-state';
 
+  if (btnResume) {
+    btnResume.classList.remove('btn-loading');
+  }
+
   switch (state) {
     case 'QUEUED':
       stateVal.classList.add('state-queued');
@@ -588,12 +611,20 @@ function switchTab(tab) {
 
 // ─── Agents Panel ─────────────────────────────────────────────────────────────
 function setupAgentForm() {
+  const drawerBackdrop = document.getElementById('drawer-backdrop');
+  if (drawerBackdrop) {
+    drawerBackdrop.addEventListener('click', () => {
+      hideAgentForm();
+    });
+  }
+
   btnAddAgent.addEventListener('click', () => {
     editingAgentName = null;
     document.getElementById('agent-form-title').textContent = currentLanguage === 'zh' ? '新增智能體' : 'New Agent';
     btnSubmitAgent.textContent = currentLanguage === 'zh' ? '創建智能體' : 'Create Agent';
     addAgentForm.classList.remove('hidden');
     addAgentForm.classList.add('slide-in');
+    if (drawerBackdrop) drawerBackdrop.classList.remove('hidden');
     btnAddAgent.disabled = true;
     inputName.focus();
   });
@@ -604,6 +635,19 @@ function setupAgentForm() {
 
   btnSubmitAgent.addEventListener('click', () => {
     submitAgent();
+  });
+
+  inputProvider.addEventListener('change', () => {
+    const provider = inputProvider.value;
+    const defaultModels = {
+      openai: 'gpt-4o',
+      gemini: 'gemini-1.5-flash',
+      anthropic: 'claude-3-haiku',
+      openrouter: 'google/gemini-flash-1.5'
+    };
+    if (provider && defaultModels[provider]) {
+      inputModel.value = defaultModels[provider];
+    }
   });
 
   if (btnTestToken) {
@@ -628,7 +672,14 @@ function setupAgentForm() {
         return;
       }
 
+      const originalText = btnTestToken.textContent;
+      btnTestToken.textContent = currentLanguage === 'zh' ? '測試中...' : 'Testing...';
+      btnTestToken.classList.add('btn-loading');
       btnTestToken.disabled = true;
+      inputToken.disabled = true;
+      inputProvider.disabled = true;
+      inputModel.disabled = true;
+
       try {
         const res = await fetch('/api/agents/test', {
           method: 'POST',
@@ -648,6 +699,11 @@ function setupAgentForm() {
         testTokenResult.textContent = (currentLanguage === 'zh' ? '連線錯誤: ' : 'Connection error: ') + e.message;
       } finally {
         btnTestToken.disabled = false;
+        inputToken.disabled = false;
+        inputProvider.disabled = false;
+        inputModel.disabled = false;
+        btnTestToken.classList.remove('btn-loading');
+        btnTestToken.textContent = originalText;
       }
     });
   }
@@ -677,6 +733,8 @@ function startEditAgent(name, role, backstory, color, avatar, provider, model, t
   editingAgentName = name;
   addAgentForm.classList.remove('hidden');
   addAgentForm.classList.add('slide-in');
+  const drawerBackdrop = document.getElementById('drawer-backdrop');
+  if (drawerBackdrop) drawerBackdrop.classList.remove('hidden');
   btnAddAgent.disabled = true;
   
   // Prefill fields
@@ -726,6 +784,8 @@ async function deleteAgent(name) {
 function hideAgentForm() {
   addAgentForm.classList.add('hidden');
   addAgentForm.classList.remove('slide-in');
+  const drawerBackdrop = document.getElementById('drawer-backdrop');
+  if (drawerBackdrop) drawerBackdrop.classList.add('hidden');
   agentFormError.classList.add('hidden');
   agentFormError.textContent = '';
   inputName.value = '';
@@ -757,48 +817,69 @@ function hideAgentForm() {
 
 async function loadAgents() {
   const loadingMsg = currentLanguage === 'zh' ? '正在載入智能體...' : 'Loading agents...';
-  agentsTbody.innerHTML = `<tr class="agents-empty-row"><td colspan="4">${loadingMsg}</td></tr>`;
+  agentsTbody.innerHTML = `<div class="agents-empty">${loadingMsg}</div>`;
   try {
     const res = await fetch('/api/agents');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     renderAgentsTable(data.agents || []);
   } catch (e) {
-    const errMsg = currentLanguage === 'zh' ? `載入智能體失敗: ${e.message}` : `Failed to load agents: ${e.message}`;
-    agentsTbody.innerHTML = `<tr class="agents-empty-row"><td colspan="4">${errMsg}</td></tr>`;
+    const errMsg = currentLanguage === 'zh' ? '載入智能體失敗: ' + e.message : 'Failed to load agents: ' + e.message;
+    agentsTbody.innerHTML = `<div class="agents-empty">${errMsg}</div>`;
   }
 }
 
 function renderAgentsTable(agents) {
   if (!agents || agents.length === 0) {
     const emptyMsg = currentLanguage === 'zh' ? '未配置智能體。請點擊「新增智能體」進行創建。' : 'No agents configured. Click "Add Agent" to create one.';
-    agentsTbody.innerHTML = `<tr class="agents-empty-row"><td colspan="4">${emptyMsg}</td></tr>`;
+    agentsTbody.innerHTML = `<div class="agents-empty">${emptyMsg}</div>`;
     return;
   }
   const editTitle = currentLanguage === 'zh' ? '編輯智能體' : 'Edit Agent';
   const deleteTitle = currentLanguage === 'zh' ? '刪除智能體' : 'Delete Agent';
   agentsTbody.innerHTML = agents.map(a => {
-    const roleStyle = a.color ? `background: ${hexToRgba(a.color, 0.15)}; border-color: ${hexToRgba(a.color, 0.3)}; color: ${a.color};` : '';
-    const avatarSpan = a.avatar ? `<span style="margin-right: 4px;">${escapeHtml(a.avatar)}</span>` : '';
-    const providerBadge = a.provider ? `<div class="agent-model-tag">${escapeHtml(a.provider)}${a.model ? ` / ${escapeHtml(a.model)}` : ''}</div>` : '';
+    const activeColor = a.color || '#6366f1';
+    const glowColor = hexToRgba(activeColor, 0.15);
+    const borderGlow = hexToRgba(activeColor, 0.3);
+    const activeAvatar = a.avatar || getDefaultAvatar(a.name);
+    const isUrl = activeAvatar && (activeAvatar.startsWith('http://') || activeAvatar.startsWith('https://') || activeAvatar.startsWith('/') || activeAvatar.startsWith('./'));
+    const avatarHtml = isUrl 
+      ? `<img src="${escapeHtml(activeAvatar)}" alt="${escapeHtml(a.name)}">`
+      : `<span>${escapeHtml(activeAvatar)}</span>`;
+      
+    const providerBadge = a.provider ? `<span class="agent-card-provider-badge">${escapeHtml(a.provider)}${a.model ? ` / ${escapeHtml(a.model)}` : ''}</span>` : '';
+    
     return `
-    <tr class="agent-row">
-      <td class="agent-name">${escapeHtml(a.name)}</td>
-      <td class="agent-role">
-        <span class="role-badge" style="${roleStyle}">${avatarSpan}${escapeHtml(a.role)}</span>
-        ${providerBadge}
-      </td>
-      <td class="agent-backstory">${escapeHtml(a.backstory || '—')}</td>
-      <td class="agent-actions">
-        <button class="btn-icon btn-edit" title="${editTitle}" data-name="${escapeHtml(a.name)}" data-role="${escapeHtml(a.role)}" data-backstory="${escapeHtml(a.backstory || '')}" data-color="${escapeHtml(a.color || '')}" data-avatar="${escapeHtml(a.avatar || '')}" data-provider="${escapeHtml(a.provider || '')}" data-model="${escapeHtml(a.model || '')}" data-token="${escapeHtml(a.token || '')}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-        </button>
-        <button class="btn-icon btn-delete" title="${deleteTitle}" data-name="${escapeHtml(a.name)}" style="color: var(--danger-color); margin-left: 0.5rem;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-        </button>
-      </td>
-    </tr>
-  `;}).join('');
+    <div class="agent-card" style="--agent-color: ${activeColor}; --agent-glow: ${glowColor}; --agent-border: ${borderGlow};">
+      <div class="agent-card-header">
+        <div class="agent-card-avatar" style="border-color: ${activeColor}; box-shadow: 0 0 10px ${glowColor};">
+          ${avatarHtml}
+        </div>
+        <div class="agent-card-meta">
+          <div class="agent-card-name">${escapeHtml(a.name)}</div>
+          <div class="agent-card-role" style="background: ${hexToRgba(activeColor, 0.12)}; border: 1px solid ${borderGlow}; color: ${activeColor};">${escapeHtml(a.role)}</div>
+        </div>
+        <div class="agent-card-actions">
+          <button class="btn-icon btn-edit" title="${editTitle}" data-name="${escapeHtml(a.name)}" data-role="${escapeHtml(a.role)}" data-backstory="${escapeHtml(a.backstory || '')}" data-color="${escapeHtml(a.color || '')}" data-avatar="${escapeHtml(a.avatar || '')}" data-provider="${escapeHtml(a.provider || '')}" data-model="${escapeHtml(a.model || '')}" data-token="${escapeHtml(a.token || '')}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button class="btn-icon btn-delete" title="${deleteTitle}" data-name="${escapeHtml(a.name)}" style="color: var(--danger-color); margin-left: 0.25rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          </button>
+        </div>
+      </div>
+      <div class="agent-card-body">
+        <p class="agent-card-backstory">${escapeHtml(a.backstory || '—')}</p>
+      </div>
+      <div class="agent-card-footer">
+        <div class="agent-card-provider">
+          <span class="provider-status-dot" style="background-color: ${activeColor}; box-shadow: 0 0 6px ${activeColor};"></span>
+          ${providerBadge}
+        </div>
+      </div>
+    </div>
+    `;
+  }).join('');
 }
 
 async function submitAgent() {
@@ -822,9 +903,20 @@ async function submitAgent() {
   }
 
   btnSubmitAgent.disabled = true;
+  btnSubmitAgent.classList.add('btn-loading');
   btnSubmitAgent.textContent = editingAgentName 
     ? (currentLanguage === 'zh' ? '儲存中...' : 'Saving...') 
     : (currentLanguage === 'zh' ? '創建中...' : 'Creating...');
+
+  // Disable all form inputs
+  inputName.disabled = true;
+  inputRole.disabled = true;
+  inputProvider.disabled = true;
+  inputToken.disabled = true;
+  inputModel.disabled = true;
+  inputBackstory.disabled = true;
+  btnCancelAgent.disabled = true;
+  if (btnTestToken) btnTestToken.disabled = true;
 
   try {
     let url = '/api/agents';
@@ -854,9 +946,20 @@ async function submitAgent() {
     agentFormError.classList.remove('hidden');
   } finally {
     btnSubmitAgent.disabled = false;
+    btnSubmitAgent.classList.remove('btn-loading');
     btnSubmitAgent.textContent = editingAgentName 
       ? (currentLanguage === 'zh' ? '儲存修改' : 'Save Changes') 
       : (currentLanguage === 'zh' ? '創建智能體' : 'Create Agent');
+
+    // Re-enable form inputs
+    inputName.disabled = false;
+    inputRole.disabled = false;
+    inputProvider.disabled = false;
+    inputToken.disabled = false;
+    inputModel.disabled = false;
+    inputBackstory.disabled = false;
+    btnCancelAgent.disabled = false;
+    if (btnTestToken) btnTestToken.disabled = false;
   }
 }
 
@@ -1023,24 +1126,67 @@ function appendMessage(sender, content, typeClass, timestamp, color, avatar, pro
   row.appendChild(avatarDiv);
   row.appendChild(bubble);
 
+  // Smart scroll check
+  const isNearBottom = (threadView.scrollHeight - threadView.scrollTop - threadView.clientHeight) <= 100;
   threadView.appendChild(row);
-  scrollToBottom();
+  
+  if (isNearBottom || isSupervisor) {
+    scrollToBottom();
+  } else {
+    showNewMessagesIndicator();
+  }
+}
+
+function showNewMessagesIndicator() {
+  const indicator = document.getElementById('new-messages-indicator');
+  if (indicator) {
+    indicator.classList.remove('hidden');
+  }
+}
+
+function setupSmartScroll() {
+  const indicator = document.getElementById('new-messages-indicator');
+  if (indicator) {
+    indicator.addEventListener('click', () => {
+      scrollToBottom();
+      indicator.classList.add('hidden');
+    });
+  }
+
+  threadView.addEventListener('scroll', () => {
+    const isNearBottom = (threadView.scrollHeight - threadView.scrollTop - threadView.clientHeight) <= 50;
+    if (isNearBottom && indicator) {
+      indicator.classList.add('hidden');
+    }
+  });
 }
 
 function appendStateCapsule(state) {
+  const isNearBottom = (threadView.scrollHeight - threadView.scrollTop - threadView.clientHeight) <= 100;
   const capsule = document.createElement('div');
   capsule.className = 'status-capsule';
   capsule.textContent = `Run State transitioned to: ${state}`;
   threadView.appendChild(capsule);
-  scrollToBottom();
+  
+  if (isNearBottom) {
+    scrollToBottom();
+  } else {
+    showNewMessagesIndicator();
+  }
 }
 
 function appendSystemLog(message, timestamp) {
+  const isNearBottom = (threadView.scrollHeight - threadView.scrollTop - threadView.clientHeight) <= 100;
   const logDiv = document.createElement('div');
   logDiv.className = 'system-message';
   logDiv.textContent = `[SYSTEM LOG - ${formatTime(timestamp)}] ${message}`;
   threadView.appendChild(logDiv);
-  scrollToBottom();
+  
+  if (isNearBottom) {
+    scrollToBottom();
+  } else {
+    showNewMessagesIndicator();
+  }
 }
 
 function scrollToBottom() {
