@@ -254,11 +254,30 @@ const btnTestToken     = document.getElementById('btn-test-token');
 const testTokenResult  = document.getElementById('test-token-result');
 const agentsTbody    = document.getElementById('agents-tbody');
 const agentFormError = document.getElementById('agent-form-error');
+let allAgents = [];
+let availableSkills = [];
+let autocompleteDropdown = null;
+let currentAutocompleteTrigger = null;
+let autocompleteTriggerIndex = -1;
+let activeAutocompleteIndex = 0;
+let filteredItems = [];
+
+async function fetchSkills() {
+  try {
+    const res = await fetch('/api/skills');
+    if (res.ok) {
+      availableSkills = await res.json();
+    }
+  } catch (err) {
+    console.error('Failed to fetch skills:', err);
+  }
+}
 
 // ─── Startup ──────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   initTotalAgents();
+  fetchSkills();
   connect();
   setupTabs();
   setupAgentForm();
@@ -274,9 +293,9 @@ async function initTotalAgents() {
     const res = await fetch('/api/agents');
     if (!res.ok) return;
     const data = await res.json();
-    const agents = data.agents || [];
-    metricTotalAgents.textContent = agents.length;
-    metricIdleAgents.textContent = agents.length;
+    allAgents = data.agents || [];
+    metricTotalAgents.textContent = allAgents.length;
+    metricIdleAgents.textContent = allAgents.length;
     metricActiveAgents.textContent = 0;
   } catch (e) {
     console.warn('Could not load total agents:', e);
@@ -341,22 +360,65 @@ btnAbort.addEventListener('click', () => sendCommand('run.abort'));
 btnResume.addEventListener('click', () => {
   const guidance = guidanceInput.value.trim();
 
+  // Intercept local slash commands (Decision 4: Local slash command interception)
+  if (guidance.startsWith('/')) {
+    const cmd = guidance.toLowerCase();
+    let intercepted = false;
+
+    switch (cmd) {
+      case '/clear':
+        const threadMessages = document.getElementById('thread-view');
+        if (threadMessages) {
+          threadMessages.innerHTML = '';
+        }
+        const stepBadge = document.getElementById('step-counter');
+        if (stepBadge) {
+          stepBadge.textContent = '0 steps';
+        }
+        intercepted = true;
+        break;
+      case '/help':
+        if (helpModal) {
+          helpModal.classList.remove('hidden');
+        }
+        intercepted = true;
+        break;
+      case '/agents':
+        switchTab('agents');
+        intercepted = true;
+        break;
+      case '/logs':
+        switchTab('logs');
+        intercepted = true;
+        break;
+    }
+
+    if (intercepted) {
+      guidanceInput.value = '';
+      btnResume.disabled = false;
+      guidanceInput.disabled = false;
+      btnResume.classList.remove('btn-loading');
+      updateGuidanceAreaTexts();
+      return;
+    }
+  }
+
   // Disable inputs and buttons
   btnResume.disabled = true;
   guidanceInput.disabled = true;
   btnResume.classList.add('btn-loading');
 
   const textEl = document.getElementById('btn-resume-text');
-  const isQueued = currentRunState === 'QUEUED';
+  const isStart = currentRunState === 'QUEUED' || currentRunState === 'COMPLETED' || currentRunState === 'CANCELLED' || currentRunState === 'FAILED';
   if (textEl) {
-    if (isQueued) {
+    if (isStart) {
       textEl.textContent = currentLanguage === 'zh' ? '啟動中...' : 'Starting...';
     } else {
       textEl.textContent = currentLanguage === 'zh' ? '恢復中...' : 'Resuming...';
     }
   }
 
-  if (isQueued) {
+  if (isStart) {
     sendCommand('run.start', guidance);
   } else {
     sendCommand('run.resume', guidance);
@@ -364,12 +426,254 @@ btnResume.addEventListener('click', () => {
   guidanceInput.value = '';
 });
 
+// Autocomplete Keyboard & Event Handlers
 guidanceInput.addEventListener('keydown', (e) => {
+  if (autocompleteDropdown) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeAutocompleteIndex = (activeAutocompleteIndex + 1) % filteredItems.length;
+      updateAutocompleteActiveItem();
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeAutocompleteIndex = (activeAutocompleteIndex - 1 + filteredItems.length) % filteredItems.length;
+      updateAutocompleteActiveItem();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredItems[activeAutocompleteIndex]) {
+        selectAutocompleteItem(filteredItems[activeAutocompleteIndex]);
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeAutocompleteDropdown();
+      return;
+    }
+  }
+
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     if (!btnResume.disabled) {
       btnResume.click();
     }
+  }
+});
+
+guidanceInput.addEventListener('input', (e) => {
+  const value = guidanceInput.value;
+  const caretIndex = guidanceInput.selectionStart;
+  const textBeforeCaret = value.substring(0, caretIndex);
+
+  const lastAt = textBeforeCaret.lastIndexOf('@');
+  const lastSlash = textBeforeCaret.lastIndexOf('/');
+
+  let trigger = null;
+  let index = -1;
+
+  if (lastAt !== -1 && (lastAt === 0 || /\s/.test(textBeforeCaret[lastAt - 1]))) {
+    const segment = textBeforeCaret.substring(lastAt + 1);
+    if (!/\s/.test(segment)) {
+      trigger = '@';
+      index = lastAt;
+    }
+  }
+
+  if (lastSlash !== -1 && (lastSlash === 0 || /\s/.test(textBeforeCaret[lastSlash - 1]))) {
+    const segment = textBeforeCaret.substring(lastSlash + 1);
+    if (!/\s/.test(segment) && (trigger === null || lastSlash > lastAt)) {
+      trigger = '/';
+      index = lastSlash;
+    }
+  }
+
+  if (trigger) {
+    currentAutocompleteTrigger = trigger;
+    autocompleteTriggerIndex = index;
+    const query = textBeforeCaret.substring(index + 1).toLowerCase();
+    showAutocompleteDropdown(trigger, query);
+  } else {
+    closeAutocompleteDropdown();
+  }
+});
+
+// Autocomplete Dropdown Helper Functions
+function getCaretCoordinates(textarea, charIndex) {
+  const mirror = document.createElement('div');
+  const style = window.getComputedStyle(textarea);
+
+  const properties = [
+    'direction', 'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
+    'borderWidth', 'borderStyle', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+    'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontVariant', 'fontStretch',
+    'lineHeight', 'textTransform', 'wordSpacing', 'letterSpacing', 'whiteSpace',
+    'wordBreak', 'wordWrap', 'textAlign', 'textIndent'
+  ];
+
+  mirror.style.position = 'absolute';
+  mirror.style.visibility = 'hidden';
+  mirror.style.top = '0';
+  mirror.style.left = '0';
+
+  properties.forEach(prop => {
+    mirror.style[prop] = style[prop];
+  });
+
+  mirror.style.width = textarea.clientWidth + 'px';
+
+  const text = textarea.value;
+  const beforeText = text.substring(0, charIndex);
+  const afterText = text.substring(charIndex);
+
+  mirror.textContent = beforeText;
+  const span = document.createElement('span');
+  span.textContent = '|';
+  mirror.appendChild(span);
+
+  const restNode = document.createTextNode(afterText);
+  mirror.appendChild(restNode);
+
+  document.body.appendChild(mirror);
+
+  const rect = textarea.getBoundingClientRect();
+  const spanRect = span.getBoundingClientRect();
+  const mirrorRect = mirror.getBoundingClientRect();
+
+  const coordinates = {
+    top: spanRect.top - mirrorRect.top - textarea.scrollTop,
+    left: spanRect.left - mirrorRect.left - textarea.scrollLeft
+  };
+
+  document.body.removeChild(mirror);
+  return coordinates;
+}
+
+function showAutocompleteDropdown(trigger, query) {
+  closeAutocompleteDropdown(true);
+
+  let rawItems = [];
+  if (trigger === '@') {
+    rawItems.push({ type: 'everyone', name: 'everyone', avatar: '👥', desc: 'Broadcast' });
+    allAgents.forEach(a => {
+      rawItems.push({ type: 'agent', name: a.name, avatar: a.avatar || '🤖', desc: a.role });
+    });
+  } else if (trigger === '/') {
+    rawItems.push({ type: 'command', name: 'clear', avatar: '🧹', desc: 'Clear GUI messages' });
+    rawItems.push({ type: 'command', name: 'help', avatar: 'ℹ️', desc: 'Show GUI help' });
+    rawItems.push({ type: 'command', name: 'agents', avatar: '👥', desc: 'Switch to Agents tab' });
+    rawItems.push({ type: 'command', name: 'logs', avatar: '📜', desc: 'Switch to Logs tab' });
+
+    availableSkills.forEach(s => {
+      rawItems.push({ type: 'skill', name: s, avatar: '⚡', desc: 'Equip skill' });
+    });
+  }
+
+  filteredItems = rawItems.filter(item => item.name.toLowerCase().includes(query));
+  if (filteredItems.length === 0) return;
+
+  autocompleteDropdown = document.createElement('div');
+  autocompleteDropdown.className = 'autocomplete-dropdown';
+
+  filteredItems.forEach((item, index) => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'autocomplete-item' + (index === activeAutocompleteIndex ? ' active' : '');
+
+    const iconEl = document.createElement('span');
+    iconEl.className = 'autocomplete-item-icon';
+    iconEl.textContent = item.avatar;
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'autocomplete-item-label';
+    labelEl.textContent = trigger === '@' ? '@' + item.name : '/' + item.name;
+
+    const descEl = document.createElement('span');
+    descEl.className = 'autocomplete-item-desc';
+    descEl.textContent = item.desc;
+
+    itemEl.appendChild(iconEl);
+    itemEl.appendChild(labelEl);
+    itemEl.appendChild(descEl);
+
+    itemEl.addEventListener('click', () => {
+      selectAutocompleteItem(item);
+    });
+
+    autocompleteDropdown.appendChild(itemEl);
+  });
+
+  document.body.appendChild(autocompleteDropdown);
+
+  const rect = guidanceInput.getBoundingClientRect();
+  const coords = getCaretCoordinates(guidanceInput, autocompleteTriggerIndex);
+
+  const left = rect.left + window.pageXOffset + coords.left;
+  const top = rect.top + window.pageYOffset + coords.top + 20;
+
+  autocompleteDropdown.style.left = left + 'px';
+  autocompleteDropdown.style.top = top + 'px';
+
+  const dropdownRect = autocompleteDropdown.getBoundingClientRect();
+  if (left + dropdownRect.width > window.innerWidth) {
+    autocompleteDropdown.style.left = (window.innerWidth - dropdownRect.width - 10) + 'px';
+  }
+  if (dropdownRect.top + dropdownRect.height > window.innerHeight) {
+    autocompleteDropdown.style.top = (rect.top + window.pageYOffset + coords.top - dropdownRect.height - 5) + 'px';
+  }
+}
+
+function selectAutocompleteItem(item) {
+  if (!autocompleteDropdown) return;
+
+  const value = guidanceInput.value;
+  const caretIndex = guidanceInput.selectionStart;
+  const insertText = currentAutocompleteTrigger === '@' ? '@' + item.name + ' ' : '/' + item.name + ' ';
+
+  const beforeText = value.substring(0, autocompleteTriggerIndex);
+  const afterText = value.substring(caretIndex);
+
+  guidanceInput.value = beforeText + insertText + afterText;
+
+  guidanceInput.focus();
+  const newCaretIndex = autocompleteTriggerIndex + insertText.length;
+  guidanceInput.setSelectionRange(newCaretIndex, newCaretIndex);
+
+  closeAutocompleteDropdown();
+  guidanceInput.dispatchEvent(new Event('input'));
+}
+
+function closeAutocompleteDropdown(keepTriggerState = false) {
+  if (autocompleteDropdown) {
+    if (autocompleteDropdown.parentNode) {
+      autocompleteDropdown.parentNode.removeChild(autocompleteDropdown);
+    }
+    autocompleteDropdown = null;
+  }
+  if (!keepTriggerState) {
+    currentAutocompleteTrigger = null;
+    autocompleteTriggerIndex = -1;
+  }
+  filteredItems = [];
+}
+
+function updateAutocompleteActiveItem() {
+  if (!autocompleteDropdown) return;
+  const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+  items.forEach((item, index) => {
+    if (index === activeAutocompleteIndex) {
+      item.classList.add('active');
+      item.scrollIntoView({ block: 'nearest' });
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (autocompleteDropdown && !autocompleteDropdown.contains(e.target) && e.target !== guidanceInput) {
+    closeAutocompleteDropdown();
   }
 });
 
@@ -517,7 +821,7 @@ function updateGuidanceAreaTexts() {
 
   if (!labelEl || !inputEl || !btnTextEl) return;
 
-  if (currentRunState === 'QUEUED') {
+  if (currentRunState === 'QUEUED' || currentRunState === 'COMPLETED' || currentRunState === 'CANCELLED' || currentRunState === 'FAILED') {
     labelEl.textContent = isZh ? '任務描述 / 提示詞' : 'Task Prompt';
     inputEl.placeholder = isZh ? '輸入任務提示詞以啟動工作流...' : 'Type a task prompt to launch the workforce...';
     btnTextEl.textContent = isZh ? '啟動任務' : 'Start Task';
@@ -584,13 +888,23 @@ function updateRunState(state) {
     case 'COMPLETED':
     case 'CANCELLED':
       stateVal.classList.add(state === 'COMPLETED' ? 'state-completed' : 'state-cancelled');
-      disableAllControls();
+      btnInterrupt.disabled = true;
+      btnAbort.disabled = true;
+      btnResume.disabled = false;
+      guidanceInput.disabled = false;
+      guidanceSection.classList.remove('disabled');
+      updateGuidanceAreaTexts();
       // Fetch session log after a short delay for the file to be written
       setTimeout(fetchAndShowSessionLog, 800);
       break;
     case 'FAILED':
       stateVal.classList.add('state-failed');
-      disableAllControls();
+      btnInterrupt.disabled = true;
+      btnAbort.disabled = true;
+      btnResume.disabled = false;
+      guidanceInput.disabled = false;
+      guidanceSection.classList.remove('disabled');
+      updateGuidanceAreaTexts();
       if (document.querySelectorAll('.message-bubble, .system-message').length === 0) {
         appendSystemLog('Error: No agents configured in workspace. Please add agents first.', Math.floor(Date.now() / 1000));
       }
@@ -862,6 +1176,7 @@ async function loadAgents() {
     const res = await fetch('/api/agents');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    allAgents = data.agents || [];
     renderAgentsTable(data.agents || []);
   } catch (e) {
     const errMsg = currentLanguage === 'zh' ? '載入智能體失敗: ' + e.message : 'Failed to load agents: ' + e.message;

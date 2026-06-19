@@ -205,36 +205,38 @@ code:
 The turn routing mechanism SHALL support explicit agent tagging (e.g. @agent-name). During a workforce run:
 - Only the agent whose name matches the tag in the previous message SHALL be activated to make LLM calls and consume token input.
 - All other agents SHALL remain in an idle state and MUST NOT execute or calculate token inputs for that turn.
+- Mentions of @User, @Supervisor, or @Human (case-insensitive) SHALL activate human handoff routing, transitioning the run state to INTERRUPTED.
 
 #### Scenario: Turn routed only to tagged agent
 - **WHEN** an agent sends a message containing a tag @CriticalReviewer
 - **THEN** the coordinator SHALL route the next turn only to the agent named CriticalReviewer
 - **AND** all other configured agents SHALL remain idle and MUST NOT invoke LLM calls
 
+#### Scenario: Turn routed to human handoff
+- **WHEN** an agent sends a message containing a tag @User
+- **THEN** the coordinator SHALL transition the run state to INTERRUPTED
+- **AND** await feedback input from the human supervisor
+
 
 <!-- @trace
-source: interactive-workforce-orchestration
-updated: 2026-06-11
+source: fix-agent-looping-and-feedback-sync
+updated: 2026-06-19
 code:
-  - .agent-office-sessions/2026-06-10-run-79450.json
-  - .agent-office-sessions/2026-06-10-run-75549.json
-  - cmd/agent-office/gui/index.html
-  - pkg/workforce/coordinator.go
-  - pkg/workforce/server.go
-  - pkg/workforce/provider.go
-  - cmd/agent-office/gui/src/style.css
-  - pkg/workforce/types.go
-  - agent-office.yaml
-  - pkg/config/config.go
-  - agent-office.exe
-  - .agent-office-sessions/2026-06-10-run-79509.json
-  - pkg/workforce/interruption.go
-  - .agent-office-token
-  - agent-office.exe~
-  - cmd/agent-office/gui/src/main.js
+  - .autohand/skills/frontend-design
+  - .agents/critical_reviewer/system_prompt.md
+  - .agents/technical_architect/system_prompt.md
+  - .agents/system_prompt.md
   - cmd/agent-office/main.go
+  - pkg/workforce/interruption.go
+  - .autohand/skills/frontend-design/SKILL.md
+  - pkg/workforce/coordinator.go
+  - .agents/lead_strategist/system_prompt.md
+  - cmd/agent-office/gui/src/main.js
+  - pkg/config/config.go
 tests:
+  - pkg/workforce/coordinator_test.go
   - pkg/config/config_test.go
+  - pkg/workforce/interruption_test.go
 -->
 
 ---
@@ -339,4 +341,67 @@ code:
   - .autohand/skills/frontend-design/SKILL.md
   - .autohand/skills/frontend-design
   - go.mod
+-->
+
+---
+### Requirement: Supervisor feedback injection in execution loop
+During a workforce run, if the execution is interrupted, the supervisor SHALL be able to provide feedback text. The system MUST inject this supervisor feedback back into the conversation history as a user message in the next LLM call turn.
+
+#### Scenario: Supervisor feedback is injected into history
+- **WHEN** the execution is resumed with supervisor feedback
+- **THEN** the system SHALL append the feedback content as a message with role "user" and name "Supervisor" to the conversation history
+- **AND** pass the updated history in subsequent LLM calls
+
+
+<!-- @trace
+source: fix-agent-looping-and-feedback-sync
+updated: 2026-06-19
+code:
+  - .autohand/skills/frontend-design
+  - .agents/critical_reviewer/system_prompt.md
+  - .agents/technical_architect/system_prompt.md
+  - .agents/system_prompt.md
+  - cmd/agent-office/main.go
+  - pkg/workforce/interruption.go
+  - .autohand/skills/frontend-design/SKILL.md
+  - pkg/workforce/coordinator.go
+  - .agents/lead_strategist/system_prompt.md
+  - cmd/agent-office/gui/src/main.js
+  - pkg/config/config.go
+tests:
+  - pkg/workforce/coordinator_test.go
+  - pkg/config/config_test.go
+  - pkg/workforce/interruption_test.go
+-->
+
+---
+### Requirement: Filesystem-based prompt loading
+The system SHALL support loading system prompt templates from the filesystem under the .agents/ folder.
+- The global collaboration template SHALL be loaded from .agents/system_prompt.md.
+- Each agent's backstory template SHALL be loaded from .agents/[agent_name]/system_prompt.md where the agent name is normalized to lowercase and spaces are replaced with underscores.
+- If these files do not exist, the system MUST fall back to using default config settings or hardcoded string fallbacks.
+
+#### Scenario: Global and agent-specific prompt templates loaded successfully
+- **WHEN** a workforce run is started and .agents/system_prompt.md and .agents/lead_strategist/system_prompt.md exist on disk
+- **THEN** the system SHALL parse the templates, replace {{.Name}}, {{.Role}}, {{.Backstory}}, and {{.OtherAgents}} fields with active values, and call the LLM with the generated prompt content
+
+<!-- @trace
+source: fix-agent-looping-and-feedback-sync
+updated: 2026-06-19
+code:
+  - .autohand/skills/frontend-design
+  - .agents/critical_reviewer/system_prompt.md
+  - .agents/technical_architect/system_prompt.md
+  - .agents/system_prompt.md
+  - cmd/agent-office/main.go
+  - pkg/workforce/interruption.go
+  - .autohand/skills/frontend-design/SKILL.md
+  - pkg/workforce/coordinator.go
+  - .agents/lead_strategist/system_prompt.md
+  - cmd/agent-office/gui/src/main.js
+  - pkg/config/config.go
+tests:
+  - pkg/workforce/coordinator_test.go
+  - pkg/config/config_test.go
+  - pkg/workforce/interruption_test.go
 -->

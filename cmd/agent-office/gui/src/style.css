@@ -1618,3 +1618,66 @@ body {
   border-radius: 12px;
   backdrop-filter: blur(16px);
 }
+
+/* Autocomplete Dropdown Popup styling */
+.autocomplete-dropdown {
+  position: absolute;
+  background: rgba(13, 18, 30, 0.95);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  max-height: 220px;
+  width: 250px;
+  overflow-y: auto;
+  backdrop-filter: blur(16px);
+  padding: 0.25rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.active {
+  background: rgba(99, 102, 241, 0.35);
+  color: #ffffff;
+}
+
+.autocomplete-item-icon {
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+}
+
+.autocomplete-item-label {
+  font-weight: 500;
+  flex: 1;
+}
+
+.autocomplete-item-desc {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-left: auto;
+}

@@ -507,6 +507,32 @@ func handleGUI() {
 	// REST: POST /api/agents/test
 	mux.HandleFunc("/api/agents/test", handleTestAgentConnection)
 
+	// REST: GET /api/skills
+	mux.HandleFunc("/api/skills", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		skillsDir := filepath.Join(".agents", "skills")
+		var skills []string
+		files, err := os.ReadDir(skillsDir)
+		if err == nil {
+			for _, file := range files {
+				if file.IsDir() {
+					skillPath := filepath.Join(skillsDir, file.Name(), "SKILL.md")
+					if _, err := os.Stat(skillPath); err == nil {
+						skills = append(skills, file.Name())
+					}
+				}
+			}
+		}
+		if skills == nil {
+			skills = []string{}
+		}
+		_ = json.NewEncoder(w).Encode(skills)
+	})
+
 	// REST: GET /api/session/latest
 	mux.HandleFunc("/api/session/latest", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -887,8 +913,11 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 		{Role: "user", Content: prompt, Name: "User"},
 	}
 
+	everyoneActive := false
+	everyoneIndex := 0
+
 	lastMessage := prompt
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 20; i++ {
 		// Step boundary check (blocks when interrupted)
 		if ok, _ := coord.CheckStepBoundary(); !ok {
 			server.BroadcastEvent(workforce.Event{
@@ -950,19 +979,54 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 			}
 		}
 
-		speaker := ""
-		if !hasMention && isSelfIntroductionRequest(history) {
-			spoken := make(map[string]bool)
-			for _, msg := range history {
-				if msg.Role == "assistant" {
-					spoken[strings.ToLower(msg.Name)] = true
-				}
+		// Check for @everyone activation
+		containsEveryone := strings.Contains(lowerMsg, "@everyone")
+		hasOtherExplicitAgentMention := false
+		for _, a := range cfg.Agents {
+			name := strings.ToLower(a.Name)
+			norm := strings.ReplaceAll(name, " ", "")
+			hyphenated := strings.ReplaceAll(name, " ", "-")
+			underscored := strings.ReplaceAll(name, " ", "_")
+			if strings.Contains(lowerMsg, "@"+name) || strings.Contains(lowerMsg, "@"+norm) || strings.Contains(lowerMsg, "@"+hyphenated) || strings.Contains(lowerMsg, "@"+underscored) {
+				hasOtherExplicitAgentMention = true
+				break
 			}
-			for _, a := range cfg.Agents {
-				normalizedName := strings.ReplaceAll(strings.ToLower(a.Name), " ", "_")
-				if !spoken[normalizedName] {
-					speaker = a.Name
-					break
+		}
+
+		if containsEveryone && !hasOtherExplicitAgentMention {
+			everyoneActive = true
+			everyoneIndex = 0
+		} else if hasOtherExplicitAgentMention {
+			everyoneActive = false
+		}
+
+		speaker := ""
+		if strings.Contains(lowerMsg, "@user") || strings.Contains(lowerMsg, "@supervisor") || strings.Contains(lowerMsg, "@human") {
+			speaker = "User"
+		} else if everyoneActive {
+			if everyoneIndex < len(cfg.Agents) {
+				speaker = cfg.Agents[everyoneIndex].Name
+				everyoneIndex++
+			}
+			if everyoneIndex >= len(cfg.Agents) {
+				everyoneActive = false
+			}
+		}
+
+		if speaker == "" {
+			if !hasMention && isSelfIntroductionRequest(history) {
+				spoken := make(map[string]bool)
+				for _, msg := range history {
+					if msg.Role == "assistant" {
+						spoken[strings.ToLower(msg.Name)] = true
+					}
+				}
+				for _, a := range cfg.Agents {
+					normalizedName := strings.ReplaceAll(strings.ToLower(a.Name), " ", "_")
+					if !spoken[normalizedName] {
+						speaker = a.Name
+						break
+					}
 				}
 			}
 		}
@@ -1057,6 +1121,25 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 				"If the task is complete and nothing else needs to be done, summarize the results and state that the work is finalized.",
 				activeAgent.Name, activeAgent.Role, activeAgent.Backstory, strings.Join(otherAgentNames, ", "))
 		}
+
+		// Load static skills from configuration
+		var staticSkillsPrompt string
+		for _, sk := range activeAgent.Skills {
+			if skContent := loadSkillPrompt(sk); skContent != "" {
+				staticSkillsPrompt += fmt.Sprintf("\n\n=== Skill: %s ===\n%s", sk, skContent)
+			}
+		}
+
+		// Load dynamic skills parsed from the last message
+		var dynamicSkillsPrompt string
+		dynamicSkills := extractDynamicSkills(lastMessage, speaker, cfg.Agents)
+		for _, sk := range dynamicSkills {
+			if skContent := loadSkillPrompt(sk); skContent != "" {
+				dynamicSkillsPrompt += fmt.Sprintf("\n\n=== Dynamic Skill: %s ===\n%s", sk, skContent)
+			}
+		}
+
+		systemPrompt += staticSkillsPrompt + dynamicSkillsPrompt
 
 		// Call LLM
 		var content string
@@ -1578,3 +1661,83 @@ func handleTestAgentConnection(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 }
+
+func loadSkillPrompt(skillName string) string {
+	skillName = filepath.Clean(skillName)
+	skillName = strings.ReplaceAll(skillName, "..", "")
+	path := filepath.Join(".agents", "skills", skillName, "SKILL.md")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return string(content)
+}
+
+func extractDynamicSkills(msg string, speaker string, agents []config.AgentConfig) []string {
+	var skills []string
+	words := strings.Fields(msg)
+	for _, word := range words {
+		if strings.HasPrefix(word, "/") {
+			skillName := strings.TrimPrefix(word, "/")
+			skillName = strings.TrimFunc(skillName, func(r rune) bool {
+				return r == '.' || r == '?' || r == ',' || r == '!' || r == ';' || r == ':'
+			})
+			if skillName == "" {
+				continue
+			}
+
+			// Verify if this skill exists
+			skillPath := filepath.Join(".agents", "skills", skillName, "SKILL.md")
+			if _, err := os.Stat(skillPath); err != nil {
+				continue
+			}
+
+			// Check if this message targets speaker
+			targetMatch := false
+			lowerMsg := strings.ToLower(msg)
+
+			if strings.Contains(lowerMsg, "@everyone") {
+				targetMatch = true
+			} else {
+				speakerLower := strings.ToLower(speaker)
+				speakerNorm := strings.ReplaceAll(speakerLower, " ", "")
+				speakerHyphen := strings.ReplaceAll(speakerLower, " ", "-")
+				speakerUnder := strings.ReplaceAll(speakerLower, " ", "_")
+
+				if strings.Contains(lowerMsg, "@"+speakerLower) ||
+					strings.Contains(lowerMsg, "@"+speakerNorm) ||
+					strings.Contains(lowerMsg, "@"+speakerHyphen) ||
+					strings.Contains(lowerMsg, "@"+speakerUnder) {
+					targetMatch = true
+				} else {
+					otherAgentMentioned := false
+					for _, a := range agents {
+						if strings.EqualFold(a.Name, speaker) {
+							continue
+						}
+						aLower := strings.ToLower(a.Name)
+						aNorm := strings.ReplaceAll(aLower, " ", "")
+						aHyphen := strings.ReplaceAll(aLower, " ", "-")
+						aUnder := strings.ReplaceAll(aLower, " ", "_")
+						if strings.Contains(lowerMsg, "@"+aLower) ||
+							strings.Contains(lowerMsg, "@"+aNorm) ||
+							strings.Contains(lowerMsg, "@"+aHyphen) ||
+							strings.Contains(lowerMsg, "@"+aUnder) {
+							otherAgentMentioned = true
+							break
+						}
+					}
+					if !otherAgentMentioned {
+						targetMatch = true
+					}
+				}
+			}
+
+			if targetMatch {
+				skills = append(skills, skillName)
+			}
+		}
+	}
+	return skills
+}
+
