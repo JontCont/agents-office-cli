@@ -68,6 +68,12 @@ func TestDeterministicTurnCoordination(t *testing.T) {
 			stage:        "Coding",
 			expectedNext: "User",
 		},
+		{
+			name:         "Agent mention takes priority over human handoff",
+			lastMessage:  "@reviewer, please review this. @user, what do you think?",
+			stage:        "Coding",
+			expectedNext: "reviewer",
+		},
 	}
 
 	for _, tt := range tests {

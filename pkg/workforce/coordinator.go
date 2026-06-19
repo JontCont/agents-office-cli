@@ -16,14 +16,7 @@ func RouteTurn(lastMessage string, stage string, agents []Agent, fallbackPlanner
 
 	lowerMsg := strings.ToLower(lastMessage)
 
-	// 0. Human Handoff Check
-	if strings.Contains(lowerMsg, "@user") ||
-		strings.Contains(lowerMsg, "@supervisor") ||
-		strings.Contains(lowerMsg, "@human") {
-		return "User"
-	}
-
-	// 1. Explicit Handoff Check
+	// 1. Explicit Handoff Check (Agent Mentions take priority)
 	for _, a := range agents {
 		name := strings.ToLower(a.Name)
 		norm := normalize(a.Name)
@@ -40,6 +33,13 @@ func RouteTurn(lastMessage string, stage string, agents []Agent, fallbackPlanner
 			strings.Contains(lowerMsg, "@"+underscored) {
 			return a.Name
 		}
+	}
+
+	// 0. Human Handoff Check
+	if strings.Contains(lowerMsg, "@user") ||
+		strings.Contains(lowerMsg, "@supervisor") ||
+		strings.Contains(lowerMsg, "@human") {
+		return "User"
 	}
 
 	// Build exact map for stage/fallback lookups

@@ -1451,9 +1451,12 @@ function appendMessage(sender, content, typeClass, timestamp, color, avatar, pro
     header.style.color = activeColor;
   }
 
+  const leftHeader = document.createElement('div');
+  leftHeader.className = 'msg-header-left';
+
   const senderSpan = document.createElement('span');
   senderSpan.textContent = sender;
-  header.appendChild(senderSpan);
+  leftHeader.appendChild(senderSpan);
 
   if (provider) {
     const modelTag = document.createElement('span');
@@ -1462,13 +1465,52 @@ function appendMessage(sender, content, typeClass, timestamp, color, avatar, pro
     modelTag.style.opacity = '0.5';
     modelTag.style.fontSize = '0.75rem';
     modelTag.style.marginLeft = '0.5rem';
-    header.appendChild(modelTag);
+    leftHeader.appendChild(modelTag);
   }
+
+  const rightHeader = document.createElement('div');
+  rightHeader.className = 'msg-header-right';
 
   const timeSpan = document.createElement('span');
   timeSpan.className = 'msg-time';
   timeSpan.textContent = formatTime(timestamp);
-  header.appendChild(timeSpan);
+  rightHeader.appendChild(timeSpan);
+
+  // Reply button (Decision 2: Companion GUI bubble Reply action)
+  const replyBtn = document.createElement('button');
+  replyBtn.className = 'btn-reply';
+  replyBtn.title = currentLanguage === 'zh' ? '回覆此訊息' : 'Reply to this message';
+  replyBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>`;
+  
+  replyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    guidanceInput.focus();
+    
+    let quote = content.trim();
+    if (quote.length > 30) {
+      quote = quote.substring(0, 30) + '...';
+    }
+    
+    // Normalise name to remove underscore if present
+    const cleanSender = sender.replace(/_/, ' ');
+    const insertText = `@${cleanSender} 針對 "${quote}"：`;
+    
+    const val = guidanceInput.value;
+    const start = guidanceInput.selectionStart;
+    const end = guidanceInput.selectionEnd;
+    guidanceInput.value = val.substring(0, start) + insertText + val.substring(end);
+    
+    const newPos = start + insertText.length;
+    guidanceInput.setSelectionRange(newPos, newPos);
+    
+    closeAutocompleteDropdown();
+    guidanceInput.dispatchEvent(new Event('input'));
+  });
+  
+  rightHeader.appendChild(replyBtn);
+
+  header.appendChild(leftHeader);
+  header.appendChild(rightHeader);
 
   // Create body
   const body = document.createElement('div');

@@ -914,7 +914,8 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 	}
 
 	everyoneActive := false
-	everyoneIndex := 0
+	everyoneSpoken := make(map[string]bool)
+	isUserMessage := true
 
 	lastMessage := prompt
 	for i := 0; i < 20; i++ {
@@ -980,39 +981,92 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 		}
 
 		// Check for @everyone activation
-		containsEveryone := strings.Contains(lowerMsg, "@everyone")
-		hasOtherExplicitAgentMention := false
-		for _, a := range cfg.Agents {
-			name := strings.ToLower(a.Name)
-			norm := strings.ReplaceAll(name, " ", "")
-			hyphenated := strings.ReplaceAll(name, " ", "-")
-			underscored := strings.ReplaceAll(name, " ", "_")
-			if strings.Contains(lowerMsg, "@"+name) || strings.Contains(lowerMsg, "@"+norm) || strings.Contains(lowerMsg, "@"+hyphenated) || strings.Contains(lowerMsg, "@"+underscored) {
-				hasOtherExplicitAgentMention = true
-				break
+		if isUserMessage {
+			containsEveryone := strings.Contains(lowerMsg, "@everyone")
+			hasOtherExplicitAgentMention := false
+			for _, a := range cfg.Agents {
+				name := strings.ToLower(a.Name)
+				norm := strings.ReplaceAll(name, " ", "")
+				hyphenated := strings.ReplaceAll(name, " ", "-")
+				underscored := strings.ReplaceAll(name, " ", "_")
+				if strings.Contains(lowerMsg, "@"+name) || strings.Contains(lowerMsg, "@"+norm) || strings.Contains(lowerMsg, "@"+hyphenated) || strings.Contains(lowerMsg, "@"+underscored) {
+					hasOtherExplicitAgentMention = true
+					break
+				}
 			}
-		}
 
-		if containsEveryone && !hasOtherExplicitAgentMention {
-			everyoneActive = true
-			everyoneIndex = 0
-		} else if hasOtherExplicitAgentMention {
-			everyoneActive = false
-		}
-
-		speaker := ""
-		if strings.Contains(lowerMsg, "@user") || strings.Contains(lowerMsg, "@supervisor") || strings.Contains(lowerMsg, "@human") {
-			speaker = "User"
-		} else if everyoneActive {
-			if everyoneIndex < len(cfg.Agents) {
-				speaker = cfg.Agents[everyoneIndex].Name
-				everyoneIndex++
-			}
-			if everyoneIndex >= len(cfg.Agents) {
+			if containsEveryone && !hasOtherExplicitAgentMention {
+				everyoneActive = true
+				allSpoken := true
+				for _, a := range cfg.Agents {
+					if !everyoneSpoken[a.Name] {
+						allSpoken = false
+						break
+					}
+				}
+				if allSpoken {
+					everyoneSpoken = make(map[string]bool)
+				}
+			} else if hasOtherExplicitAgentMention {
 				everyoneActive = false
 			}
 		}
 
+		speaker := ""
+		// 1. If @everyone is active, strictly route to the next agent who hasn't spoken yet
+		if everyoneActive {
+			var nextAgentName string
+			for _, a := range cfg.Agents {
+				if !everyoneSpoken[a.Name] {
+					nextAgentName = a.Name
+					break
+				}
+			}
+
+			if nextAgentName != "" {
+				speaker = nextAgentName
+				everyoneSpoken[nextAgentName] = true
+			}
+
+			// Check if all agents have spoken
+			allSpoken := true
+			for _, a := range cfg.Agents {
+				if !everyoneSpoken[a.Name] {
+					allSpoken = false
+					break
+				}
+			}
+			if allSpoken {
+				everyoneActive = false
+			}
+		}
+
+		// 2. If not @everyone, check if there is an explicit agent mention first
+		if speaker == "" {
+			var mentionedAgent string
+			for _, a := range cfg.Agents {
+				name := strings.ToLower(a.Name)
+				norm := strings.ReplaceAll(name, " ", "")
+				hyphenated := strings.ReplaceAll(name, " ", "-")
+				underscored := strings.ReplaceAll(name, " ", "_")
+				if strings.Contains(lowerMsg, "@"+name) || strings.Contains(lowerMsg, "@"+norm) || strings.Contains(lowerMsg, "@"+hyphenated) || strings.Contains(lowerMsg, "@"+underscored) {
+					mentionedAgent = a.Name
+					break
+				}
+			}
+			if mentionedAgent != "" {
+				speaker = mentionedAgent
+			}
+		}
+
+		// 3. If no agent mention, check for human supervisor handoff
+		if speaker == "" {
+			if strings.Contains(lowerMsg, "@user") || strings.Contains(lowerMsg, "@supervisor") || strings.Contains(lowerMsg, "@human") {
+				speaker = "User"
+			}
+		}
+
+		// 4. Check for self-introductions fallback
 		if speaker == "" {
 			if !hasMention && isSelfIntroductionRequest(history) {
 				spoken := make(map[string]bool)
@@ -1031,6 +1085,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 			}
 		}
 
+		// 5. Fallback routing via RouteTurn
 		if speaker == "" {
 			speaker = workforce.RouteTurn(lastMessage, "Planning", wfAgents, cfg.Agents[0].Name)
 		}
@@ -1068,6 +1123,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 				Content: feedback,
 				Name:    "Supervisor",
 			})
+			isUserMessage = true
 			i--
 			continue
 		}
@@ -1210,6 +1266,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 		})
 
 		lastMessage = content
+		isUserMessage = false
 		history = append(history, ChatMessage{
 			Role:    "assistant",
 			Content: content,
@@ -1404,7 +1461,7 @@ func callLLMDirectly(providerStr, token, model, systemPrompt string, history int
 		}
 		payload := map[string]interface{}{
 			"model":      model,
-			"max_tokens": 1024,
+			"max_tokens": 4096,
 			"messages":   anthropicHist,
 		}
 		if systemPrompt != "" {

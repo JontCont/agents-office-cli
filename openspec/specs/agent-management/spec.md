@@ -405,3 +405,81 @@ tests:
   - pkg/config/config_test.go
   - pkg/workforce/interruption_test.go
 -->
+
+---
+### Requirement: Autocomplete popup in guidance input
+The companion GUI guidance input textarea SHALL support an autocomplete popup.
+- Typing `@` MUST display a dropdown containing configured agent names and the `@everyone` tag.
+- Typing `/` MUST display a dropdown containing local UI commands (`/clear`, `/help`, `/agents`, `/logs`) and dynamic skill options loaded from `.agents/skills/`.
+- Pressing `Enter` or clicking an item in the autocomplete popup SHALL select the item and insert it into the textarea.
+- Pressing `ArrowUp` or `ArrowDown` SHALL navigate through the list.
+
+#### Scenario: Autocomplete popup displays on trigger character
+- **WHEN** the user types "@" in the supervisor guidance input textarea
+- **THEN** the autocomplete popup SHALL appear displaying the configured agents and @everyone
+- **AND WHEN** the user selects "Lead Strategist" and presses Enter
+- **THEN** the popup SHALL close and "@Lead Strategist " SHALL be inserted at the cursor position
+
+#### Scenario: Slash command autocomplete list loaded dynamically
+- **WHEN** the user types "/" in the supervisor guidance input textarea
+- **THEN** the GUI SHALL fetch the available skills from the server
+- **AND** the autocomplete popup SHALL display local UI commands and the fetched skill names as slash options
+
+
+<!-- @trace
+source: add-autocomplete-and-skills-routing
+updated: 2026-06-19
+code:
+  - cmd/agent-office/gui/src/style.css
+  - .autohand/skills/frontend-design/SKILL.md
+  - .autohand/skills/frontend-design
+  - cmd/agent-office/gui/src/main.js
+  - cmd/agent-office/main.go
+-->
+
+---
+### Requirement: Sequential routing for everyone tag
+If the starting prompt or supervisor guidance contains the `@everyone` tag and does not contain any other explicit agent mentions:
+- The coordinator SHALL execute a sequential loop where every configured agent is activated to speak exactly once in their defined order.
+- This sequential routing SHALL persist across intermediate human interruptions until all configured agents have spoken.
+
+#### Scenario: Everyone tag triggers sequential turn routing
+- **WHEN** the user starts a run with the prompt "@everyone please introduce yourselves"
+- **THEN** the coordinator SHALL route the first turn to the first configured agent
+- **AND WHEN** that agent completes their turn and tags @User
+- **AND** the user resumes with "please continue"
+- **THEN** the coordinator SHALL route the next turn to the second configured agent who has not spoken yet
+
+
+<!-- @trace
+source: add-autocomplete-and-skills-routing
+updated: 2026-06-19
+code:
+  - cmd/agent-office/gui/src/style.css
+  - .autohand/skills/frontend-design/SKILL.md
+  - .autohand/skills/frontend-design
+  - cmd/agent-office/gui/src/main.js
+  - cmd/agent-office/main.go
+-->
+
+---
+### Requirement: Agent skill prompt injection
+The workforce runtime SHALL support both static and dynamic skill prompt loading:
+- **Static Skill loading**: If an agent configuration contains a skill name in its `skills` array, the system SHALL read the skill template from `.agents/skills/[skill_name]/SKILL.md` and append its instructions to the agent's system prompt for all turns.
+- **Dynamic Skill loading**: If a routed message contains a skill command (e.g. `@AgentName /SkillName`), the system SHALL load the skill template from `.agents/skills/[skill_name]/SKILL.md` and dynamically append its instructions to the target agent's system prompt for that turn only.
+
+#### Scenario: Dynamic skill prompt injection on tag
+- **WHEN** the message history contains "@Technical Architect /frontend-design please style this button"
+- **THEN** the system SHALL load the content of .agents/skills/frontend-design/SKILL.md
+- **AND** append it to the system prompt of Technical Architect for the subsequent LLM call
+
+<!-- @trace
+source: add-autocomplete-and-skills-routing
+updated: 2026-06-19
+code:
+  - cmd/agent-office/gui/src/style.css
+  - .autohand/skills/frontend-design/SKILL.md
+  - .autohand/skills/frontend-design
+  - cmd/agent-office/gui/src/main.js
+  - cmd/agent-office/main.go
+-->
