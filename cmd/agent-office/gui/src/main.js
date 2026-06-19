@@ -8,6 +8,7 @@ let costPer1k = 0; // loaded from /api/config
 let editingAgentName = null; // null if creating, non-null if editing
 let currentRunState = 'QUEUED';
 let currentLanguage = 'en';
+let currentUsername = '';
 
 const translations = {
   en: {
@@ -19,6 +20,7 @@ const translations = {
     tab_run: "Run Thread",
     tab_logs: "Logs",
     tab_agents: "Agents",
+    tab_settings: "Settings",
     logs_header: "Session Logs",
     category_workforce: "Workforce",
     category_execution: "Execution",
@@ -78,7 +80,15 @@ const translations = {
     help_step_4_title: "4. Supervisor Interruption",
     help_step_4_desc: "If the agents go off track, click Interrupt Run. The process will pause, allowing you to type guidance into the feedback box. Click Resume Execution to inject your feedback and steer the agents.",
     step_loading: "Loading...",
-    new_messages_badge: "New messages below ↓"
+    new_messages_badge: "New messages below ↓",
+    settings_header: "Settings",
+    settings_user_prefs: "User Preferences",
+    label_username: "Username",
+    placeholder_username: "Enter your username",
+    settings_appearance: "Appearance",
+    label_theme: "Theme",
+    theme_dark: "Dark",
+    theme_light: "Light"
   },
   zh: {
     logo_subtitle: "協同面板",
@@ -89,6 +99,7 @@ const translations = {
     tab_run: "運行線程",
     tab_logs: "日誌",
     tab_agents: "智能體配置",
+    tab_settings: "設定",
     logs_header: "運行日誌",
     category_workforce: "團隊成員",
     category_execution: "執行狀態",
@@ -148,7 +159,15 @@ const translations = {
     help_step_4_title: "4. 督導中斷與引導",
     help_step_4_desc: "如果智能體討論偏離軌道，點擊「中斷運行」。進程將暫停，允許您在反饋框中輸入引導。點擊「恢復執行」以注入您的反饋並引導智能體。",
     step_loading: "載入中...",
-    new_messages_badge: "下方有新訊息 ↓"
+    new_messages_badge: "下方有新訊息 ↓",
+    settings_header: "設定",
+    settings_user_prefs: "用戶偏好",
+    label_username: "用戶名稱",
+    placeholder_username: "輸入您的用戶名稱",
+    settings_appearance: "外觀",
+    label_theme: "主題",
+    theme_dark: "深色",
+    theme_light: "淺色"
   }
 };
 
@@ -234,10 +253,16 @@ const guidanceInput   = document.getElementById('guidance-input');
 const tabRun    = document.getElementById('tab-run');
 const tabLogs   = document.getElementById('tab-logs');
 const tabAgents = document.getElementById('tab-agents');
+const tabSettings = document.getElementById('tab-settings');
 const viewRun   = document.getElementById('view-run');
 const viewLogs  = document.getElementById('view-logs');
 const viewAgents = document.getElementById('view-agents');
+const viewSettings = document.getElementById('view-settings');
 const tabLogContentPre = document.getElementById('tab-log-content-pre');
+
+// Settings panel
+const inputUsername = document.getElementById('input-username');
+const selectTheme = document.getElementById('select-theme');
 
 // Agents panel
 const btnAddAgent    = document.getElementById('btn-add-agent');
@@ -286,6 +311,9 @@ window.addEventListener('DOMContentLoaded', () => {
   setupSmartScroll();
   setupAccordions();
   setupSidebarToggle();
+  initTheme();
+  setupSettings();
+  fetchAndApplyUsername();
 });
 
 async function initTotalAgents() {
@@ -924,15 +952,20 @@ function setupTabs() {
   tabRun.addEventListener('click', () => switchTab('run'));
   tabLogs.addEventListener('click', () => switchTab('logs'));
   tabAgents.addEventListener('click', () => switchTab('agents'));
+  if (tabSettings) {
+    tabSettings.addEventListener('click', () => switchTab('settings'));
+  }
 }
 
 function switchTab(tab) {
   tabRun.classList.remove('tab-btn--active');
   tabLogs.classList.remove('tab-btn--active');
   tabAgents.classList.remove('tab-btn--active');
+  if (tabSettings) tabSettings.classList.remove('tab-btn--active');
   viewRun.classList.remove('tab-view--active');
   viewLogs.classList.remove('tab-view--active');
   viewAgents.classList.remove('tab-view--active');
+  if (viewSettings) viewSettings.classList.remove('tab-view--active');
 
   if (tab === 'run') {
     tabRun.classList.add('tab-btn--active');
@@ -945,6 +978,10 @@ function switchTab(tab) {
     tabAgents.classList.add('tab-btn--active');
     viewAgents.classList.add('tab-view--active');
     loadAgents();
+  } else if (tab === 'settings') {
+    if (tabSettings) tabSettings.classList.add('tab-btn--active');
+    if (viewSettings) viewSettings.classList.add('tab-view--active');
+    loadUsername();
   }
 }
 
@@ -1380,7 +1417,16 @@ function hexToRgba(hex, alpha) {
 function appendMessage(sender, content, typeClass, timestamp, color, avatar, provider, model) {
   const isAgent = typeClass === 'msg-agent';
   const nameLower = (sender || '').toLowerCase();
-  const isSupervisor = nameLower.includes('supervisor') || nameLower.includes('user') || nameLower.includes('human') || typeClass === 'msg-supervisor';
+  const isSupervisor = nameLower.includes('supervisor') || 
+                       nameLower.includes('user') || 
+                       nameLower.includes('human') || 
+                       typeClass === 'msg-supervisor' ||
+                       (currentUsername && nameLower === currentUsername.toLowerCase());
+
+  let displaySender = sender;
+  if (isSupervisor && currentUsername) {
+    displaySender = currentUsername;
+  }
 
   // Determine actual color
   let activeColor = color;
@@ -1425,7 +1471,7 @@ function appendMessage(sender, content, typeClass, timestamp, color, avatar, pro
   if (isUrl) {
     const img = document.createElement('img');
     img.src = activeAvatar;
-    img.alt = sender;
+    img.alt = displaySender;
     avatarDiv.appendChild(img);
   } else {
     const span = document.createElement('span');
@@ -1455,7 +1501,7 @@ function appendMessage(sender, content, typeClass, timestamp, color, avatar, pro
   leftHeader.className = 'msg-header-left';
 
   const senderSpan = document.createElement('span');
-  senderSpan.textContent = sender;
+  senderSpan.textContent = displaySender;
   leftHeader.appendChild(senderSpan);
 
   if (provider) {
@@ -1492,7 +1538,7 @@ function appendMessage(sender, content, typeClass, timestamp, color, avatar, pro
     }
     
     // Normalise name to remove underscore if present
-    const cleanSender = sender.replace(/_/, ' ');
+    const cleanSender = displaySender.replace(/_/, ' ');
     const insertText = `@${cleanSender} 針對 "${quote}"：`;
     
     const val = guidanceInput.value;
@@ -1637,4 +1683,145 @@ async function loadLatestSessionLogContent() {
   } catch (e) {
     tabLogContentPre.textContent = currentLanguage === 'zh' ? '載入日誌內容失敗。' : 'Error loading log content.';
   }
+}
+
+// ─── Settings and Theme Functions ──────────────────────────────────────────────
+function initTheme() {
+  if (isLocalStorageAvailable()) {
+    const theme = localStorage.getItem('theme');
+    if (theme === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+  }
+}
+
+function setupSettings() {
+  if (inputUsername) {
+    inputUsername.addEventListener('blur', saveUsername);
+    inputUsername.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveUsername();
+        inputUsername.blur();
+      }
+    });
+  }
+
+  if (selectTheme) {
+    if (isLocalStorageAvailable()) {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      selectTheme.value = savedTheme;
+      selectTheme.addEventListener('change', (e) => {
+        const theme = e.target.value;
+        localStorage.setItem('theme', theme);
+        if (theme === 'light') {
+          document.body.classList.add('theme-light');
+        } else {
+          document.body.classList.remove('theme-light');
+        }
+      });
+    } else {
+      selectTheme.disabled = true;
+      selectTheme.title = 'localStorage unavailable';
+    }
+  }
+}
+
+function isLocalStorageAvailable() {
+  try {
+    const key = '__test_local_storage__';
+    localStorage.setItem(key, key);
+    localStorage.removeItem(key);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function loadUsername() {
+  if (!inputUsername) return;
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    inputUsername.value = data.username || '';
+    currentUsername = data.username || '';
+    inputUsername.disabled = false;
+    inputUsername.placeholder = currentLanguage === 'zh' ? '輸入您的用戶名稱' : 'Enter your username';
+  } catch (e) {
+    console.error('Failed to load username:', e);
+    inputUsername.value = '';
+    inputUsername.disabled = true;
+    inputUsername.placeholder = currentLanguage === 'zh' ? '加載用戶名稱失敗' : 'Failed to load username';
+  }
+}
+
+async function saveUsername() {
+  if (!inputUsername || inputUsername.disabled) return;
+  const username = inputUsername.value.trim();
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    currentUsername = username;
+    const successMsg = currentLanguage === 'zh' 
+      ? '用戶名稱已儲存。需要重啟後端以應用更改。'
+      : 'Username saved. Restart required to apply changes.';
+    showToast(successMsg, 'success');
+  } catch (e) {
+    const errorMsg = currentLanguage === 'zh'
+      ? `儲存用戶名稱失敗: ${e.message}`
+      : `Failed to save username: ${e.message}`;
+    showToast(errorMsg, 'error');
+  }
+}
+
+function showToast(message, type = 'success') {
+  let container = document.querySelector('.toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+  
+  const icon = document.createElement('span');
+  icon.className = 'toast-icon';
+  icon.textContent = type === 'success' ? '✓' : '⚠';
+  
+  const text = document.createElement('span');
+  text.textContent = message;
+  
+  toast.appendChild(icon);
+  toast.appendChild(text);
+  container.appendChild(toast);
+  
+  setTimeout(() => toast.classList.add('toast--show'), 10);
+  
+  setTimeout(() => {
+    toast.classList.remove('toast--show');
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+function fetchAndApplyUsername() {
+  fetch('/api/settings')
+    .then(res => {
+      if (res.ok) return res.json();
+      throw new Error();
+    })
+    .then(data => {
+      currentUsername = data.username || '';
+    })
+    .catch(() => {});
 }

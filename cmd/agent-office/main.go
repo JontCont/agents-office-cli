@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -376,11 +377,19 @@ func handleRun() {
 		},
 		func(sender, content string) {
 			if server != nil {
+				displaySender := sender
+				if sender == "Supervisor" || sender == "User" {
+					if latestCfg, err := config.LoadConfig(configPath); err == nil && latestCfg.Username != "" {
+						displaySender = latestCfg.Username
+					} else if cfg.Username != "" {
+						displaySender = cfg.Username
+					}
+				}
 				server.BroadcastEvent(workforce.Event{
 					ID:        fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 					Type:      "agent.speak",
 					Timestamp: time.Now().Unix(),
-					Sender:    sender,
+					Sender:    displaySender,
 					Content:   content,
 					Metadata: map[string]interface{}{
 						"stage": "Intervention",
@@ -449,11 +458,19 @@ func handleGUI() {
 		},
 		func(sender, content string) {
 			if server != nil {
+				displaySender := sender
+				if sender == "Supervisor" || sender == "User" {
+					if latestCfg, err := config.LoadConfig(configPath); err == nil && latestCfg.Username != "" {
+						displaySender = latestCfg.Username
+					} else if cfg.Username != "" {
+						displaySender = cfg.Username
+					}
+				}
 				server.BroadcastEvent(workforce.Event{
 					ID:        fmt.Sprintf("msg-%d", time.Now().UnixNano()),
 					Type:      "agent.speak",
 					Timestamp: time.Now().Unix(),
-					Sender:    sender,
+					Sender:    displaySender,
 					Content:   content,
 					Metadata: map[string]interface{}{
 						"stage": "Intervention",
@@ -486,6 +503,50 @@ func handleGUI() {
 			"provider":    providerStr,
 			"cost_per_1k": rate,
 		})
+	})
+
+	// REST: /api/settings (GET username, PUT update username)
+	mux.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			cfg, err := config.LoadConfig(configPath)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "configuration not found"})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"username": cfg.Username})
+		case http.MethodPut:
+			var req struct {
+				Username string `json:"username"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid JSON body"})
+				return
+			}
+			cfg, err := config.LoadConfig(configPath)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "configuration not found"})
+				return
+			}
+			cfg.Username = req.Username
+			if err := config.SaveConfig(configPath, cfg); err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "failed to save configuration"})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"username": cfg.Username})
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
 	})
 
 	// REST: /api/agents (GET list, POST create, PUT update, DELETE delete)
@@ -896,13 +957,26 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 		Content:   fmt.Sprintf("Task started: %s", prompt),
 	})
 
+	historyUser := "User"
+	if cfg.Username != "" {
+		historyUser = cfg.Username
+	}
+	// Clean username for LLM Name parameter (alphanumeric and underscores only, convert spaces to underscores)
+	spaceReg := regexp.MustCompile(`\s+`)
+	historyUserClean := spaceReg.ReplaceAllString(historyUser, "_")
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	historyUserClean = reg.ReplaceAllString(historyUserClean, "")
+	if historyUserClean == "" {
+		historyUserClean = "User"
+	}
+
 	// Inject the starting prompt as the initial message in the thread
 	server.BroadcastEvent(workforce.Event{
 		ID:        fmt.Sprintf("evt-prompt-%d", time.Now().UnixNano()),
 		RunID:     runID,
 		Type:      "agent.speak",
 		Timestamp: time.Now().Unix(),
-		Sender:    "User",
+		Sender:    historyUser,
 		Content:   prompt,
 		Metadata: map[string]interface{}{
 			"stage": "Planning",
@@ -910,7 +984,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 	})
 
 	history := []ChatMessage{
-		{Role: "user", Content: prompt, Name: "User"},
+		{Role: "user", Content: prompt, Name: historyUserClean},
 	}
 
 	everyoneActive := false
@@ -965,7 +1039,17 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 		// Determine speaker based on routing
 		hasMention := false
 		lowerMsg := strings.ToLower(lastMessage)
-		if strings.Contains(lowerMsg, "@user") || strings.Contains(lowerMsg, "@supervisor") || strings.Contains(lowerMsg, "@human") {
+		hasUserMention := strings.Contains(lowerMsg, "@user") || strings.Contains(lowerMsg, "@supervisor") || strings.Contains(lowerMsg, "@human")
+		if !hasUserMention && cfg.Username != "" {
+			userLower := strings.ToLower(cfg.Username)
+			norm := strings.ReplaceAll(userLower, " ", "")
+			hyphenated := strings.ReplaceAll(userLower, " ", "-")
+			underscored := strings.ReplaceAll(userLower, " ", "_")
+			if strings.Contains(lowerMsg, "@"+userLower) || strings.Contains(lowerMsg, "@"+norm) || strings.Contains(lowerMsg, "@"+hyphenated) || strings.Contains(lowerMsg, "@"+underscored) {
+				hasUserMention = true
+			}
+		}
+		if hasUserMention {
 			hasMention = true
 		} else {
 			for _, a := range cfg.Agents {
@@ -1061,7 +1145,17 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 
 		// 3. If no agent mention, check for human supervisor handoff
 		if speaker == "" {
-			if strings.Contains(lowerMsg, "@user") || strings.Contains(lowerMsg, "@supervisor") || strings.Contains(lowerMsg, "@human") {
+			hasUserMention := strings.Contains(lowerMsg, "@user") || strings.Contains(lowerMsg, "@supervisor") || strings.Contains(lowerMsg, "@human")
+			if !hasUserMention && cfg.Username != "" {
+				userLower := strings.ToLower(cfg.Username)
+				norm := strings.ReplaceAll(userLower, " ", "")
+				hyphenated := strings.ReplaceAll(userLower, " ", "-")
+				underscored := strings.ReplaceAll(userLower, " ", "_")
+				if strings.Contains(lowerMsg, "@"+userLower) || strings.Contains(lowerMsg, "@"+norm) || strings.Contains(lowerMsg, "@"+hyphenated) || strings.Contains(lowerMsg, "@"+underscored) {
+					hasUserMention = true
+				}
+			}
+			if hasUserMention {
 				speaker = "User"
 			}
 		}
@@ -1121,7 +1215,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 			history = append(history, ChatMessage{
 				Role:    "user",
 				Content: feedback,
-				Name:    "Supervisor",
+				Name:    historyUserClean,
 			})
 			isUserMessage = true
 			i--

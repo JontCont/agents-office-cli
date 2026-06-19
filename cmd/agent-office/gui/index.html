@@ -56,6 +56,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
         <span data-i18n="tab_agents">Agents</span>
       </button>
+      <button id="tab-settings" class="tab-btn" data-tab="settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span data-i18n="tab_settings">Settings</span>
+      </button>
     </nav>
 
     <main class="app-content">
@@ -278,6 +282,37 @@
           <div class="agents-grid-wrapper">
             <div id="agents-tbody" class="agents-grid">
               <div class="agents-empty" data-i18n="agents_loading">Loading agents...</div>
+            </div>
+          </div>
+        </section>
+      </div>
+      
+      <!-- Tab: Settings -->
+      <div id="view-settings" class="tab-view">
+        <section class="panel settings-panel" style="flex: 1; overflow: hidden; height: 100%;">
+          <div class="panel-header">
+            <h2 data-i18n="settings_header">Settings</h2>
+          </div>
+          <div class="panel-body" style="flex: 1; overflow-y: auto; padding: 2rem; display: flex; flex-direction: column; gap: 2rem; max-width: 600px;">
+            <!-- User Preferences Section -->
+            <div class="settings-section">
+              <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;" data-i18n="settings_user_prefs">User Preferences</h3>
+              <div class="form-row" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem;">
+                <label for="input-username" style="font-size: 0.875rem; color: var(--text-secondary);" data-i18n="label_username">Username</label>
+                <input id="input-username" type="text" placeholder="Enter your username" data-i18n-placeholder="placeholder_username" autocomplete="off" style="width: 100%; max-width: 400px; padding: 0.65rem 0.85rem; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: 8px; color: #fff; font-family: var(--font-sans); font-size: 0.9rem; outline: none; transition: border-color 0.2s ease;">
+              </div>
+            </div>
+
+            <!-- Appearance Section -->
+            <div class="settings-section">
+              <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;" data-i18n="settings_appearance">Appearance</h3>
+              <div class="form-row" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <label for="select-theme" style="font-size: 0.875rem; color: var(--text-secondary);" data-i18n="label_theme">Theme</label>
+                <select id="select-theme" style="width: 100%; max-width: 400px; padding: 0.65rem 0.85rem; background: rgba(10, 15, 26, 0.8); border: 1px solid var(--border-color); border-radius: 8px; color: #fff; font-family: var(--font-sans); font-size: 0.9rem; outline: none; transition: border-color 0.2s ease; cursor: pointer;">
+                  <option value="dark" data-i18n="theme_dark">Dark</option>
+                  <option value="light" data-i18n="theme_light">Light</option>
+                </select>
+              </div>
             </div>
           </div>
         </section>
