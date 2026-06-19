@@ -782,6 +782,12 @@ async function deleteAgent(name) {
 }
 
 function hideAgentForm() {
+  // Blur any active element inside the form before sliding it out
+  // to prevent the browser from automatically scrolling the page horizontally
+  if (document.activeElement && addAgentForm.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
   addAgentForm.classList.add('hidden');
   addAgentForm.classList.remove('slide-in');
   const drawerBackdrop = document.getElementById('drawer-backdrop');
@@ -813,6 +819,15 @@ function hideAgentForm() {
   document.getElementById('agent-form-title').textContent = currentLanguage === 'zh' ? '新增智能體' : 'New Agent';
   btnSubmitAgent.textContent = currentLanguage === 'zh' ? '創建智能體' : 'Create Agent';
   editingAgentName = null;
+
+  // Enforce resetting any horizontal scroll shifts
+  setTimeout(() => {
+    window.scrollTo({ left: 0 });
+    document.body.scrollLeft = 0;
+    document.documentElement.scrollLeft = 0;
+    const appContainer = document.querySelector('.app-container');
+    if (appContainer) appContainer.scrollLeft = 0;
+  }, 100);
 }
 
 async function loadAgents() {

@@ -804,8 +804,9 @@ body {
   gap: 1.25rem;
   overflow: hidden;
   backdrop-filter: blur(24px);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, visibility 0.3s ease;
   transform: translateX(0);
+  visibility: visible;
 }
 
 .add-agent-form.hidden {
@@ -813,6 +814,7 @@ body {
   transform: translateX(100%);
   opacity: 0;
   pointer-events: none;
+  visibility: hidden;
 }
 
 /* Scrollable form body wrapper inside drawer modal */
