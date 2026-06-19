@@ -443,6 +443,100 @@ body {
   word-break: break-word;
 }
 
+.msg-body.markdown-body {
+  white-space: normal;
+}
+
+.msg-body.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+.msg-body.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.msg-body.markdown-body h1,
+.msg-body.markdown-body h2,
+.msg-body.markdown-body h3,
+.msg-body.markdown-body h4 {
+  color: #fff;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.msg-body.markdown-body h1 { font-size: 1.3rem; }
+.msg-body.markdown-body h2 { font-size: 1.15rem; }
+.msg-body.markdown-body h3 { font-size: 1.05rem; }
+.msg-body.markdown-body h4 { font-size: 0.95rem; }
+
+.msg-body.markdown-body ul,
+.msg-body.markdown-body ol {
+  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
+}
+.msg-body.markdown-body ul {
+  list-style-type: disc;
+}
+.msg-body.markdown-body ol {
+  list-style-type: decimal;
+}
+.msg-body.markdown-body li {
+  margin-bottom: 0.25rem;
+}
+
+.msg-body.markdown-body pre {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+.msg-body.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  font-size: 0.85rem;
+  display: block;
+}
+.msg-body.markdown-body code {
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f43f5e;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.msg-body.markdown-body blockquote {
+  border-left: 3px solid var(--accent-color);
+  padding-left: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0.75rem 0;
+  font-style: italic;
+}
+
+.msg-body.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+}
+.msg-body.markdown-body th,
+.msg-body.markdown-body td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.msg-body.markdown-body th {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-weight: 600;
+}
+.msg-body.markdown-body tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .msg-time {
   opacity: 0.5;
   font-weight: 400;

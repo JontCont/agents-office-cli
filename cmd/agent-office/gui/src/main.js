@@ -1515,7 +1515,12 @@ function appendMessage(sender, content, typeClass, timestamp, color, avatar, pro
   // Create body
   const body = document.createElement('div');
   body.className = 'msg-body';
-  body.textContent = content;
+  if (typeof marked !== 'undefined') {
+    body.classList.add('markdown-body');
+    body.innerHTML = marked.parse(escapeHtml(content));
+  } else {
+    body.textContent = content;
+  }
 
   bubble.appendChild(header);
   bubble.appendChild(body);
