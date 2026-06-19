@@ -10,11 +10,14 @@
 
 ## Features
 
-- **Deterministic Turn Coordination**: Avoids unpredictable and costly LLM-driven turn selection by resolving the next active agent via explicit handoffs (`@agent` / `@name`), active project stage rules, or a fallback planner agent.
+- **Deterministic Turn Coordination**: Avoids unpredictable and costly LLM-driven turn selection by resolving the next active agent via explicit handoffs (`@agent` / `@name`), `@everyone` broadcasts, active project stage rules, or a fallback planner agent.
 - **Safe Step-Boundary Interruption**: Implements a robust state-transition engine (`QUEUED`, `RUNNING`, `INTERRUPTING`, `INTERRUPTED`, `RESUMING`, `COMPLETED`, `FAILED`, `CANCELLED`). Execution halts safely before sending LLM prompts or initiating tool calls, guaranteeing state consistency and preventing corrupted sessions.
+- **Dynamic Agent Skills System**: Load static skills from agent configuration or dynamically inject skills on-the-fly via `@AgentName /SkillName` tags. Skills are stored as markdown files in `.agents/skills/` and automatically appended to agent system prompts.
+- **Flexible System Prompts**: Configure global instructions in `.agents/system_prompt.md` for all agents, or add agent-specific prompts in `.agents/{agent_name}/system_prompt.md` for role-specific behavior customization.
 - **Embedded Web Dashboard**: Compiles all static web assets (HTML, CSS, JavaScript) directly into the Go executable via `go:embed`. Serves the companion app on port `8080` and upgrades client connections to WebSockets over a single network port.
 - **Tauri Companion GUI Scaffolding**: Provides structured configurations inside the frontend directory, pre-configured to build a native cross-platform desktop application using Tauri.
-- **CLI Workspace Commands**: Quick initialization commands (`init`) to scaffold default configurations and list (`agent list`) the defined agent capabilities.
+- **Rich Agent Configuration**: Per-agent customization including color themes, avatar emojis, provider/model overrides, and individual API tokens for fine-grained control.
+- **CLI Workspace Commands**: Full agent lifecycle management with `init`, `agent create`, `agent edit`, `agent delete`, and `agent list` commands for workspace configuration.
 
 ---
 
@@ -61,6 +64,13 @@ graph TD
 │       ├── coordinator.go        # Deterministic turn-routing logic
 │       ├── interruption.go       # Step-boundary checking & transition manager
 │       └── server.go             # Upgrader & broadcast WebSocket hub
+├── .agents/                      # Agent behavior customization (created manually)
+│   ├── system_prompt.md          # Global system prompt for all agents
+│   ├── skills/                   # Reusable skill modules
+│   │   └── {skill_name}/
+│   │       └── SKILL.md          # Skill instructions loaded on demand
+│   └── {agent_name}/             # Per-agent customization
+│       └── system_prompt.md      # Agent-specific prompt additions
 ├── go.mod                        # Go module manifest
 └── agent-office.yaml             # Workspace config (generated on init)
 ```
@@ -92,18 +102,115 @@ Initialize a new workspace configuration in the current working directory. This 
 .\agent-office.exe init
 ```
 
-### 2. Listing Configured Agents
-Verify the active configuration and view the list of configured agents and roles:
+### 2. Agent Management
+
+#### List Configured Agents
+View all configured agents with their roles and settings:
 ```powershell
 .\agent-office.exe agent list
 ```
 
-### 3. Launching the GUI Dashboard Companion
-Starts the WebSocket backend, serves the dashboard assets, and automatically launches your default web browser to view the real-time simulation:
+#### Create a New Agent
+Interactively create a new agent (prompts for name, role, and backstory):
+```powershell
+.\agent-office.exe agent create
+```
+
+#### Edit an Existing Agent
+Interactively modify an agent's configuration:
+```powershell
+.\agent-office.exe agent edit
+```
+
+#### Delete an Agent
+Remove an agent from the workspace configuration:
+```powershell
+.\agent-office.exe agent delete
+```
+
+### 3. Running the Workforce
+
+#### Start the Runtime Server
+Launch the multi-agent runtime without the GUI (headless mode):
+```powershell
+.\agent-office.exe run
+```
+
+#### Launch the GUI Dashboard Companion
+Start the WebSocket backend, serve the dashboard assets, and automatically launch your default web browser:
 ```powershell
 .\agent-office.exe gui
 ```
-*Note: If you run `gui`, the console will start streaming mock agent discussion thread turns. You can use the buttons on the dashboard to **Interrupt**, **Abort**, or **Resume** (with feedback message) the active execution.*
+*Note: The GUI provides real-time monitoring, interactive controls for **Interrupt**, **Abort**, and **Resume** operations, and displays execution logs and telemetry.*
+
+---
+
+## Agent Customization
+
+### System Prompts
+
+Agent behavior can be customized through layered system prompts:
+
+**Global Prompt** (`.agents/system_prompt.md`):
+- Applied to all agents in the workspace
+- Define shared collaboration protocols, tagging conventions, and response guidelines
+- Example: Instructions for using `@AgentName` handoffs and `@User` for supervisor questions
+
+**Agent-Specific Prompts** (`.agents/{agent_name}/system_prompt.md`):
+- Override or extend the global prompt for individual agents
+- Add role-specific instructions, expertise areas, or output formatting rules
+- Example: `.agents/technical_architect/system_prompt.md` for architecture-specific guidelines
+
+### Skills System
+
+Skills are reusable instruction modules that can be loaded statically or dynamically:
+
+**Static Skills** (configured in `agent-office.yaml`):
+```yaml
+agents:
+  - name: Technical Architect
+    role: System Designer
+    skills:
+      - frontend-design
+      - api-design
+```
+
+**Dynamic Skills** (injected via message tags):
+```
+@TechnicalArchitect /frontend-design please review this component
+```
+
+Skills are stored in `.agents/skills/{skill_name}/SKILL.md` and automatically appended to the agent's system prompt for that turn.
+
+**Creating a Skill**:
+1. Create directory: `.agents/skills/my-skill/`
+2. Add instructions: `.agents/skills/my-skill/SKILL.md`
+3. Reference in config or use `@AgentName /my-skill` in messages
+
+---
+
+## Configuration Reference
+
+The `agent-office.yaml` file supports the following fields:
+
+```yaml
+version: "1.0"
+username: YourName              # Supervisor name for @username mentions
+provider: anthropic             # Default LLM provider (anthropic, openrouter)
+model: claude-haiku-4-5         # Default model for all agents
+agents:
+  - name: Agent Name
+    role: Agent Role
+    backstory: ""               # Optional agent backstory
+    skills: []                  # Static skills to load
+    tools: []                   # Reserved for future tool integration
+    hooks: []                   # Reserved for future webhook integration
+    color: '#6366f1'            # GUI avatar color (hex)
+    avatar: "📋"                # Emoji avatar for GUI
+    provider: anthropic         # Override global provider
+    model: claude-haiku-4-5     # Override global model
+    token: sk-ant-...           # Agent-specific API token
+```
 
 ---
 
@@ -129,11 +236,14 @@ go test ./... -v
 
 ## 特性 (Features)
 
-- **確定性輪替協調 (Deterministic Turn Coordination)**：避免因 LLM 驅動輪替選擇所帶來的不確定性與高昂成本，透過明確的移交（`@agent` / `@name`）、當前項目階段規則或後備規劃器智能體（Fallback planner agent）來解析下一個活動智能體。
+- **確定性輪替協調 (Deterministic Turn Coordination)**：避免因 LLM 驅動輪替選擇所帶來的不確定性與高昂成本，透過明確的移交（`@agent` / `@name`）、`@everyone` 廣播、當前項目階段規則或後備規劃器智能體（Fallback planner agent）來解析下一個活動智能體。
 - **安全的步驟邊界中斷 (Safe Step-Boundary Interruption)**：實現了強健的狀態轉移引擎（`QUEUED`、`RUNNING`、`INTERRUPTING`、`INTERRUPTED`、`RESUMING`、`COMPLETED`、`FAILED`、`CANCELLED`）。在發送 LLM 提示詞或啟動工具調用之前安全暫停執行，保證狀態一致性並防止會話損壞。
+- **動態智能體技能系統 (Dynamic Agent Skills System)**：從智能體配置載入靜態技能，或透過 `@AgentName /SkillName` 標籤動態注入技能。技能以 Markdown 檔案儲存於 `.agents/skills/` 中，並自動附加至智能體的系統提示詞。
+- **彈性系統提示詞 (Flexible System Prompts)**：在 `.agents/system_prompt.md` 中配置所有智能體的全域指令，或在 `.agents/{agent_name}/system_prompt.md` 中為特定智能體新增角色專屬的行為客製化。
 - **內嵌網頁儀表板 (Embedded Web Dashboard)**：透過 `go:embed` 將所有靜態網頁資源（HTML、CSS、JavaScript）直接編譯至 Go 可執行檔中。在連接埠 `8080` 上提供隨附的應用程式，並透過單一網路連接埠將用戶端連線升級為 WebSocket。
 - **Tauri 隨附 GUI 腳手架 (Tauri Companion GUI Scaffolding)**：在前端目錄中提供結構化配置，預先配置為使用 Tauri 建置原生跨平台桌面應用程式。
-- **CLI 工作區指令 (CLI Workspace Commands)**：提供快速初始化指令（`init`）以建置預設配置，並能列出（`agent list`）已定義的智能體能力。
+- **豐富的智能體配置 (Rich Agent Configuration)**：每個智能體可客製化顏色主題、頭像表情符號、提供者/模型覆寫，以及個別 API token，實現精細控制。
+- **CLI 工作區指令 (CLI Workspace Commands)**：完整的智能體生命週期管理，包含 `init`、`agent create`、`agent edit`、`agent delete` 和 `agent list` 指令，用於工作區配置。
 
 ---
 
@@ -180,6 +290,13 @@ graph TD
 │       ├── coordinator.go        # 確定性輪替路由邏輯
 │       ├── interruption.go       # 步驟邊界檢查與轉移管理器
 │       └── server.go             # 升級器與廣播 WebSocket 集線器 (Hub)
+├── .agents/                      # 智能體行為客製化 (手動建立)
+│   ├── system_prompt.md          # 所有智能體的全域系統提示詞
+│   ├── skills/                   # 可重複使用的技能模組
+│   │   └── {skill_name}/
+│   │       └── SKILL.md          # 按需載入的技能指令
+│   └── {agent_name}/             # 每個智能體的客製化
+│       └── system_prompt.md      # 智能體專屬的提示詞附加內容
 ├── go.mod                        # Go 模組清單
 └── agent-office.yaml             # 工作區配置 (於 init 時生成)
 ```
@@ -211,18 +328,115 @@ go build -o agent-office.exe ./cmd/agent-office
 .\agent-office.exe init
 ```
 
-### 2. 列出已配置的智能體
-驗證活動配置並檢視已配置的智能體和角色列表：
+### 2. 智能體管理
+
+#### 列出已配置的智能體
+檢視所有已配置的智能體及其角色和設定：
 ```powershell
 .\agent-office.exe agent list
 ```
 
-### 3. 啟動 GUI 儀表板隨附程式
-啟動 WebSocket 後端，提供儀表板資源，並自動啟動您的預設網頁瀏覽器以檢視即時模擬：
+#### 建立新智能體
+互動式建立新智能體（提示輸入名稱、角色和背景故事）：
+```powershell
+.\agent-office.exe agent create
+```
+
+#### 編輯現有智能體
+互動式修改智能體的配置：
+```powershell
+.\agent-office.exe agent edit
+```
+
+#### 刪除智能體
+從工作區配置中移除智能體：
+```powershell
+.\agent-office.exe agent delete
+```
+
+### 3. 執行工作流
+
+#### 啟動運行時伺服器
+啟動多智能體運行時（無 GUI 的 headless 模式）：
+```powershell
+.\agent-office.exe run
+```
+
+#### 啟動 GUI 儀表板隨附程式
+啟動 WebSocket 後端，提供儀表板資源，並自動啟動您的預設網頁瀏覽器：
 ```powershell
 .\agent-office.exe gui
 ```
-*說明：如果您執行 `gui`，主控台將開始串流模擬智能體討論執行緒輪替。您可以使用儀表板上的按鈕來對活動執行進行**中斷（Interrupt）**、**中止（Abort）**或**恢復（Resume）**（包含反饋訊息）。*
+*說明：GUI 提供即時監控、**中斷（Interrupt）**、**中止（Abort）** 和 **恢復（Resume）** 操作的互動式控制，並顯示執行日誌和遙測數據。*
+
+---
+
+## 智能體客製化 (Agent Customization)
+
+### 系統提示詞 (System Prompts)
+
+智能體行為可以透過分層的系統提示詞進行客製化：
+
+**全域提示詞** (`.agents/system_prompt.md`):
+- 適用於工作區中的所有智能體
+- 定義共享的協作協定、標籤約定和回應準則
+- 範例：使用 `@AgentName` 移交和 `@User` 向監督者提問的指令
+
+**智能體專屬提示詞** (`.agents/{agent_name}/system_prompt.md`):
+- 覆寫或擴展個別智能體的全域提示詞
+- 新增角色特定的指令、專業領域或輸出格式規則
+- 範例：`.agents/technical_architect/system_prompt.md` 用於架構特定的指導方針
+
+### 技能系統 (Skills System)
+
+技能是可重複使用的指令模組，可以靜態或動態載入：
+
+**靜態技能** (在 `agent-office.yaml` 中配置):
+```yaml
+agents:
+  - name: Technical Architect
+    role: System Designer
+    skills:
+      - frontend-design
+      - api-design
+```
+
+**動態技能** (透過訊息標籤注入):
+```
+@TechnicalArchitect /frontend-design please review this component
+```
+
+技能儲存於 `.agents/skills/{skill_name}/SKILL.md`，並在該輪次自動附加至智能體的系統提示詞。
+
+**建立技能**:
+1. 建立目錄：`.agents/skills/my-skill/`
+2. 新增指令：`.agents/skills/my-skill/SKILL.md`
+3. 在配置中引用或在訊息中使用 `@AgentName /my-skill`
+
+---
+
+## 配置參考 (Configuration Reference)
+
+`agent-office.yaml` 檔案支援以下欄位：
+
+```yaml
+version: "1.0"
+username: YourName              # 監督者名稱，用於 @username 提及
+provider: anthropic             # 預設 LLM 提供者 (anthropic, openrouter)
+model: claude-haiku-4-5         # 所有智能體的預設模型
+agents:
+  - name: Agent Name
+    role: Agent Role
+    backstory: ""               # 可選的智能體背景故事
+    skills: []                  # 要載入的靜態技能
+    tools: []                   # 保留供未來工具整合使用
+    hooks: []                   # 保留供未來 webhook 整合使用
+    color: '#6366f1'            # GUI 頭像顏色 (十六進位)
+    avatar: "📋"                # GUI 的表情符號頭像
+    provider: anthropic         # 覆寫全域提供者
+    model: claude-haiku-4-5     # 覆寫全域模型
+    token: sk-ant-...           # 智能體專屬的 API token
+```
 
 ---
 
