@@ -202,41 +202,87 @@ code:
 
 ---
 ### Requirement: Tag-based agent activation and token control
-The turn routing mechanism SHALL support explicit agent tagging (e.g. @agent-name). During a workforce run:
-- Only the agent whose name matches the tag in the previous message SHALL be activated to make LLM calls and consume token input.
-- All other agents SHALL remain in an idle state and MUST NOT execute or calculate token inputs for that turn.
-- Mentions of @User, @Supervisor, or @Human (case-insensitive) SHALL activate human handoff routing, transitioning the run state to INTERRUPTED.
+
+The turn routing mechanism SHALL support explicit agent tagging (e.g. @agent-name). When the global configuration field `tag_required` is set to `true` in `agent-office.yaml`, the system SHALL enforce tag-based execution control: only agents whose names are explicitly mentioned in the current message (or when `@everyone` is present) SHALL execute LLM calls. When `tag_required` is `false` or omitted, the existing routing logic applies without tag enforcement.
+
+During a workforce run with tag enforcement enabled:
+- Only the agent whose name matches a tag in the previous message SHALL be activated to make LLM calls and consume token input.
+- Agents not mentioned in the message SHALL be skipped (no LLM call executed) and the execution loop SHALL continue to the next iteration.
+- The special tag `@everyone` SHALL activate all configured agents in sequential order.
+- When all agents are skipped in a single iteration (no tags present), the system SHALL transition to human handoff routing (speaker set to "User") and pause execution.
+- Mentions of @User, @Supervisor, or @Human (case-insensitive, or matching the configured username) SHALL activate human handoff routing, transitioning the run state to INTERRUPTED.
 
 #### Scenario: Turn routed only to tagged agent
-- **WHEN** an agent sends a message containing a tag @CriticalReviewer
+
+- **WHEN** `tag_required: true` is configured
+- **AND** an agent sends a message containing a tag @CriticalReviewer
 - **THEN** the coordinator SHALL route the next turn only to the agent named CriticalReviewer
 - **AND** all other configured agents SHALL remain idle and MUST NOT invoke LLM calls
 
 #### Scenario: Turn routed to human handoff
+
 - **WHEN** an agent sends a message containing a tag @User
 - **THEN** the coordinator SHALL transition the run state to INTERRUPTED
 - **AND** await feedback input from the human supervisor
 
+#### Scenario: Untagged agent is skipped when tag enforcement enabled
+
+- **WHEN** `tag_required: true` is configured
+- **AND** the last message does not mention a specific agent by name
+- **AND** the routing logic determines an agent as the next speaker
+- **THEN** the system SHALL skip the LLM call for that agent
+- **AND** continue to the next iteration of the execution loop
+
+#### Scenario: All agents skipped triggers human handoff
+
+- **WHEN** `tag_required: true` is configured
+- **AND** the last message contains no agent tags
+- **AND** all configured agents have been evaluated and skipped
+- **THEN** the system SHALL set the speaker to "User"
+- **AND** pause execution to request supervisor input
+
+#### Scenario: Tag enforcement disabled preserves existing behavior
+
+- **WHEN** `tag_required` is `false` or omitted
+- **THEN** agents SHALL execute based on existing routing logic
+- **AND** tag presence SHALL NOT affect whether an agent executes an LLM call
+
 
 <!-- @trace
-source: fix-agent-looping-and-feedback-sync
-updated: 2026-06-19
+source: tag-required-agent-routing
+updated: 2026-06-20
 code:
-  - .autohand/skills/frontend-design
-  - .agents/critical_reviewer/system_prompt.md
-  - .agents/technical_architect/system_prompt.md
-  - .agents/system_prompt.md
-  - cmd/agent-office/main.go
-  - pkg/workforce/interruption.go
+  - .agents/visual-assets/debug_crops/desk_top_left.png
+  - .agents/visual-assets/characters/engineer/config.json
+  - cmd/agent-office/gui/src/activity.js
+  - .agents/visual-assets/debug_crops/desk_top_right.png
+  - .agents/visual-assets/office_map_clean.png
+  - agent-office.example.yaml
   - .autohand/skills/frontend-design/SKILL.md
-  - pkg/workforce/coordinator.go
-  - .agents/lead_strategist/system_prompt.md
-  - cmd/agent-office/gui/src/main.js
+  - .agents/visual-assets/debug_crops/desk_bottom_left.png
+  - .agents/visual-assets/characters/engineer/sprite.png
+  - cmd/agent-office/main.go
+  - .agents/visual-assets/characters/reviewer/config.json
+  - .agents/visual-assets/office_map_grid.png
   - pkg/config/config.go
+  - .autohand/skills/frontend-design
+  - .agents/visual-assets/README.md
+  - cmd/agent-office/gui/src/style.css
+  - .agents/visual-assets/characters/reviewer/sprite.png
+  - .agents/visual-assets/debug_crops/meeting.png
+  - .agents/visual-assets/debug_crops/kitchen.png
+  - cmd/agent-office/gui/src/main.js
+  - .agents/visual-assets/office_map_patched_test.png
+  - .agents/visual-assets/characters/strategist/sprite.png
+  - .agents/visual-assets/characters/strategist/config.json
+  - .agents/visual-assets/debug_crops/desk_bottom_right.png
+  - .agents/visual-assets/office_map.png
+  - .agents/system_prompt.md
+  - README.md
+  - cmd/agent-office/gui/index.html
 tests:
-  - pkg/workforce/coordinator_test.go
+  - cmd/agent-office/routing_test.go
   - pkg/config/config_test.go
-  - pkg/workforce/interruption_test.go
 -->
 
 ---
