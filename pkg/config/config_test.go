@@ -56,6 +56,7 @@ func TestConfigLoadSave(t *testing.T) {
 				Hooks:     []string{"pre-commit"},
 			},
 		},
+		TagRequired: true,
 	}
 
 	if err := SaveConfig(tmpFile, cfg); err != nil {
@@ -67,7 +68,7 @@ func TestConfigLoadSave(t *testing.T) {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	if loaded.Version != cfg.Version || loaded.Provider != cfg.Provider || loaded.Model != cfg.Model {
+	if loaded.Version != cfg.Version || loaded.Provider != cfg.Provider || loaded.Model != cfg.Model || loaded.TagRequired != cfg.TagRequired {
 		t.Errorf("Loaded config mismatch. Expected %+v, got %+v", cfg, loaded)
 	}
 

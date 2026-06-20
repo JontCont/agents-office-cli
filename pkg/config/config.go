@@ -24,11 +24,12 @@ type AgentConfig struct {
 }
 
 type Config struct {
-	Version  string        `yaml:"version"`
-	Username string        `yaml:"username,omitempty"`
-	Provider string        `yaml:"provider"`
-	Model    string        `yaml:"model"`
-	Agents   []AgentConfig `yaml:"agents"`
+	Version     string        `yaml:"version"`
+	Username    string        `yaml:"username,omitempty"`
+	Provider    string        `yaml:"provider"`
+	Model       string        `yaml:"model"`
+	Agents      []AgentConfig `yaml:"agents"`
+	TagRequired bool          `yaml:"tag_required,omitempty" json:"tag_required,omitempty"`
 }
 
 func LoadConfig(path string) (*Config, error) {

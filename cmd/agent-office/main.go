@@ -936,6 +936,18 @@ func isSelfIntroductionRequest(history []ChatMessage) bool {
 	return false
 }
 
+func isAgentTagged(message string, agentName string) bool {
+	lowerMsg := strings.ToLower(message)
+	name := strings.ToLower(agentName)
+	norm := strings.ReplaceAll(name, " ", "")
+	hyphenated := strings.ReplaceAll(name, " ", "-")
+	underscored := strings.ReplaceAll(name, " ", "_")
+	return strings.Contains(lowerMsg, "@"+name) ||
+		strings.Contains(lowerMsg, "@"+norm) ||
+		strings.Contains(lowerMsg, "@"+hyphenated) ||
+		strings.Contains(lowerMsg, "@"+underscored)
+}
+
 func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSServer, cfg *config.Config, prompt string, runID string) {
 	providerStr := cfg.Provider
 	if providerStr == "" && len(cfg.Agents) > 0 {
@@ -1036,6 +1048,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 	isUserMessage := true
 
 	lastMessage := prompt
+	skippedAgents := make(map[string]bool)
 	for i := 0; i < 20; i++ {
 		// Step boundary check (blocks when interrupted)
 		if ok, _ := coord.CheckStepBoundary(); !ok {
@@ -1063,10 +1076,13 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 			return
 		}
 
-		// Convert config.AgentConfig to workforce.Agent for RouteTurn
-		wfAgents := make([]workforce.Agent, len(cfg.Agents))
-		for idx, a := range cfg.Agents {
-			wfAgents[idx] = workforce.Agent{
+		// Convert config.AgentConfig to workforce.Agent for RouteTurn, filtering out skipped agents when tag_required is enabled
+		var wfAgents []workforce.Agent
+		for _, a := range cfg.Agents {
+			if cfg.TagRequired && skippedAgents[a.Name] {
+				continue
+			}
+			wfAgents = append(wfAgents, workforce.Agent{
 				Name:      a.Name,
 				Role:      a.Role,
 				Backstory: a.Backstory,
@@ -1077,7 +1093,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 				Avatar:    a.Avatar,
 				Provider:  a.Provider,
 				Model:     a.Model,
-			}
+			})
 		}
 
 		// Determine speaker based on routing
@@ -1228,6 +1244,38 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 			speaker = workforce.RouteTurn(lastMessage, "Planning", wfAgents, cfg.Agents[0].Name)
 		}
 
+		if cfg.TagRequired && speaker != "User" && speaker != "" {
+			// Check if speaker is tagged in lastMessage, or @everyone is present
+			isTagged := false
+			if strings.Contains(strings.ToLower(lastMessage), "@everyone") {
+				isTagged = true
+			} else {
+				isTagged = isAgentTagged(lastMessage, speaker)
+			}
+
+			if !isTagged {
+				// Mark as skipped
+				skippedAgents[speaker] = true
+
+				server.BroadcastEvent(workforce.Event{
+					ID:        fmt.Sprintf("evt-skip-log-%d", time.Now().UnixNano()),
+					RunID:     runID,
+					Type:      "system.log",
+					Timestamp: time.Now().Unix(),
+					Sender:    "system",
+					Content:   fmt.Sprintf("Skipping agent %s (not tagged).", speaker),
+				})
+
+				if len(skippedAgents) >= len(cfg.Agents) {
+					// All agents skipped, trigger fallback to supervisor handoff
+					speaker = "User"
+				} else {
+					// Skip to the next iteration to evaluate another agent
+					continue
+				}
+			}
+		}
+
 		if speaker == "User" {
 			_ = coord.AskHuman()
 			ok, feedback := coord.CheckStepBoundary()
@@ -1256,6 +1304,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 				return
 			}
 			lastMessage = feedback
+			skippedAgents = make(map[string]bool)
 			history = append(history, ChatMessage{
 				Role:    "user",
 				Content: feedback,
@@ -1414,6 +1463,7 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 		})
 
 		lastMessage = content
+		skippedAgents = make(map[string]bool)
 		isUserMessage = false
 		history = append(history, ChatMessage{
 			Role:    "assistant",
