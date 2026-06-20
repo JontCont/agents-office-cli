@@ -1335,6 +1335,16 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 
 		systemPrompt += staticSkillsPrompt + dynamicSkillsPrompt
 
+		// Broadcast that the active agent is currently thinking/working
+		server.BroadcastEvent(workforce.Event{
+			ID:        fmt.Sprintf("evt-thinking-%d", time.Now().UnixNano()),
+			RunID:     runID,
+			Type:      "agent.thinking",
+			Timestamp: time.Now().Unix(),
+			Sender:    speaker,
+			Content:   "thinking...",
+		})
+
 		// Call LLM
 		var content string
 		var tokens int
