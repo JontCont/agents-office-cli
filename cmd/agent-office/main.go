@@ -22,6 +22,7 @@ import (
 	"agent-office/pkg/workforce"
 
 	"golang.org/x/term"
+	"gopkg.in/yaml.v3"
 )
 
 type ChatMessage struct {
@@ -1365,11 +1366,21 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 				activeAgent.Name, activeAgent.Role, activeAgent.Backstory, strings.Join(otherAgentNames, ", "))
 		}
 
+		inputTokenProvider := activeAgent.Provider
+		outputTokenProvider := activeAgent.Provider
+
 		// Load static skills from configuration
 		var staticSkillsPrompt string
 		for _, sk := range activeAgent.Skills {
-			if skContent := loadSkillPrompt(sk); skContent != "" {
+			skContent, inProv, outProv := loadSkillPrompt(sk)
+			if skContent != "" {
 				staticSkillsPrompt += fmt.Sprintf("\n\n=== Skill: %s ===\n%s", sk, skContent)
+				if inProv != "" {
+					inputTokenProvider = inProv
+				}
+				if outProv != "" {
+					outputTokenProvider = outProv
+				}
 			}
 		}
 
@@ -1377,8 +1388,15 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 		var dynamicSkillsPrompt string
 		dynamicSkills := extractDynamicSkills(lastMessage, speaker, cfg.Agents)
 		for _, sk := range dynamicSkills {
-			if skContent := loadSkillPrompt(sk); skContent != "" {
+			skContent, inProv, outProv := loadSkillPrompt(sk)
+			if skContent != "" {
 				dynamicSkillsPrompt += fmt.Sprintf("\n\n=== Dynamic Skill: %s ===\n%s", sk, skContent)
+				if inProv != "" {
+					inputTokenProvider = inProv
+				}
+				if outProv != "" {
+					outputTokenProvider = outProv
+				}
 			}
 		}
 
@@ -1449,16 +1467,18 @@ func runWorkforceExecution(coord *workforce.Coordinator, server *workforce.WSSer
 			Sender:    speaker,
 			Content:   content,
 			Metadata: map[string]interface{}{
-				"tokens":        tokens,
-				"stage":         "Execution",
-				"latency":       latency,
-				"active_agents": activeAgents,
-				"idle_agents":   idleAgents,
-				"total_agents":  totalAgents,
-				"color":         activeColor,
-				"avatar":        activeAvatar,
-				"provider":      activeProvider,
-				"model":         activeModel,
+				"tokens":                tokens,
+				"input_token_provider":  inputTokenProvider,
+				"output_token_provider": outputTokenProvider,
+				"stage":                 "Execution",
+				"latency":               latency,
+				"active_agents":         activeAgents,
+				"idle_agents":           idleAgents,
+				"total_agents":          totalAgents,
+				"color":                 activeColor,
+				"avatar":                activeAvatar,
+				"provider":              activeProvider,
+				"model":                 activeModel,
 			},
 		})
 
@@ -1917,15 +1937,62 @@ func handleTestAgentConnection(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func loadSkillPrompt(skillName string) string {
+type SkillFrontmatter struct {
+	InputTokenProvider  string `yaml:"input_token_provider"`
+	OutputTokenProvider string `yaml:"output_token_provider"`
+}
+
+func parseSkillContent(fileContent string) (string, string, string) {
+	// Normalize line endings to LF
+	normalized := strings.ReplaceAll(fileContent, "\r\n", "\n")
+
+	if !strings.HasPrefix(normalized, "---\n") {
+		return fileContent, "", ""
+	}
+
+	idx := strings.Index(normalized[4:], "---")
+	if idx == -1 {
+		return fileContent, "", ""
+	}
+	closingIdx := idx + 4
+	
+	yamlBlock := normalized[4:closingIdx]
+	
+	bodyStart := closingIdx + 3
+	if bodyStart < len(normalized) && normalized[bodyStart] == '\n' {
+		bodyStart++
+	}
+	body := normalized[bodyStart:]
+
+	if strings.TrimSpace(yamlBlock) == "" {
+		return body, "", ""
+	}
+
+	var fm SkillFrontmatter
+	if err := yaml.Unmarshal([]byte(yamlBlock), &fm); err != nil {
+		log.Printf("Warning: Failed to parse YAML frontmatter: %v", err)
+		return body, "", ""
+	}
+
+	return body, fm.InputTokenProvider, fm.OutputTokenProvider
+}
+
+// loadSkillPrompt loads the prompt content and token provider attribution values
+// for a configured skill.
+// Expected frontmatter format in SKILL.md:
+// ---
+// input_token_provider: <provider>
+// output_token_provider: <provider>
+// ---
+func loadSkillPrompt(skillName string) (string, string, string) {
 	skillName = filepath.Clean(skillName)
 	skillName = strings.ReplaceAll(skillName, "..", "")
 	path := filepath.Join(".agents", "skills", skillName, "SKILL.md")
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return ""
+		return "", "", ""
 	}
-	return string(content)
+	return parseSkillContent(string(content))
 }
 
 func extractDynamicSkills(msg string, speaker string, agents []config.AgentConfig) []string {

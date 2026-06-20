@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -13,6 +14,11 @@ import (
 	"agent-office/pkg/workforce"
 	"github.com/gorilla/websocket"
 )
+
+func init() {
+	// Change working directory to project root so skill templates and config files can be loaded
+	_ = os.Chdir("../..")
+}
 
 func TestIsAgentTagged(t *testing.T) {
 	tests := []struct {
@@ -52,8 +58,16 @@ func TestTagRequiredRoutingIntegration(t *testing.T) {
 	}
 
 	// Create coordinator
-	coord := workforce.NewCoordinator(nil, nil)
-	server := workforce.NewWSServer(coord)
+	var server *workforce.WSServer
+	coord := workforce.NewCoordinator(func(state workforce.RunState) {
+		if server != nil {
+			server.BroadcastEvent(workforce.Event{
+				Type:    "state.change",
+				Content: string(state),
+			})
+		}
+	}, nil)
+	server = workforce.NewWSServer(coord)
 
 	// Create httptest Server
 	mux := http.NewServeMux()
@@ -107,6 +121,7 @@ func TestTagRequiredRoutingIntegration(t *testing.T) {
 	skippedRev := false
 	interrupted := false
 
+Loop1:
 	for {
 		select {
 		case evt := <-events:
@@ -125,10 +140,10 @@ func TestTagRequiredRoutingIntegration(t *testing.T) {
 				}
 			}
 		case <-timeout:
-			break
+			break Loop1
 		}
 		if interrupted && skippedLead && skippedArch && skippedRev {
-			break
+			break Loop1
 		}
 	}
 
@@ -158,18 +173,19 @@ func TestTagRequiredRoutingIntegration(t *testing.T) {
 	timeout = time.After(5 * time.Second)
 	architectSpoke := false
 
+Loop2:
 	for {
 		select {
 		case evt := <-events:
 			if evt.Type == "agent.speak" && evt.Sender == "Technical Architect" {
 				architectSpoke = true
-				break
+				break Loop2
 			}
 		case <-timeout:
-			break
+			break Loop2
 		}
 		if architectSpoke {
-			break
+			break Loop2
 		}
 	}
 
@@ -239,6 +255,7 @@ func TestTagRequiredEveryoneIntegration(t *testing.T) {
 	archSpoke := false
 	skippedAny := false
 
+LoopEveryone:
 	for {
 		select {
 		case evt := <-events:
@@ -254,10 +271,10 @@ func TestTagRequiredEveryoneIntegration(t *testing.T) {
 				skippedAny = true
 			}
 		case <-timeout:
-			break
+			break LoopEveryone
 		}
 		if (leadSpoke && archSpoke) || skippedAny {
-			break
+			break LoopEveryone
 		}
 	}
 
@@ -327,6 +344,7 @@ func TestTagRequiredDisabledIntegration(t *testing.T) {
 	leadSpoke := false
 	skippedAny := false
 
+LoopDisabled:
 	for {
 		select {
 		case evt := <-events:
@@ -337,10 +355,10 @@ func TestTagRequiredDisabledIntegration(t *testing.T) {
 				skippedAny = true
 			}
 		case <-timeout:
-			break
+			break LoopDisabled
 		}
 		if leadSpoke || skippedAny {
-			break
+			break LoopDisabled
 		}
 	}
 
@@ -358,3 +376,197 @@ func TestTagRequiredDisabledIntegration(t *testing.T) {
 	abortBytes, _ := json.Marshal(abortCmd)
 	_ = conn.WriteMessage(websocket.TextMessage, abortBytes)
 }
+
+func TestParseFrontmatter_ValidYAML(t *testing.T) {
+	content := "---\ninput_token_provider: input-prov\noutput_token_provider: output-prov\n---\n# My Skill\nHello"
+	body, inProv, outProv := parseSkillContent(content)
+	if body != "# My Skill\nHello" {
+		t.Errorf("Expected body '# My Skill\\nHello', got %q", body)
+	}
+	if inProv != "input-prov" {
+		t.Errorf("Expected input provider 'input-prov', got %q", inProv)
+	}
+	if outProv != "output-prov" {
+		t.Errorf("Expected output provider 'output-prov', got %q", outProv)
+	}
+}
+
+func TestParseFrontmatter_Malformed(t *testing.T) {
+	content := "---\ninput_token_provider: [unclosed\n---\n# My Skill\nHello"
+	body, inProv, outProv := parseSkillContent(content)
+	if body != "# My Skill\nHello" {
+		t.Errorf("Expected body '# My Skill\\nHello', got %q", body)
+	}
+	if inProv != "" || outProv != "" {
+		t.Errorf("Expected empty providers, got in: %q, out: %q", inProv, outProv)
+	}
+}
+
+func TestParseFrontmatter_MissingDelimiters(t *testing.T) {
+	content := "# My Skill\nHello"
+	body, inProv, outProv := parseSkillContent(content)
+	if body != content {
+		t.Errorf("Expected body to match content, got %q", body)
+	}
+	if inProv != "" || outProv != "" {
+		t.Errorf("Expected empty providers, got in: %q, out: %q", inProv, outProv)
+	}
+}
+
+func TestParseFrontmatter_EmptyBlock(t *testing.T) {
+	content := "---\n---\n# My Skill\nHello"
+	body, inProv, outProv := parseSkillContent(content)
+	if body != "# My Skill\nHello" {
+		t.Errorf("Expected body '# My Skill\\nHello', got %q", body)
+	}
+	if inProv != "" || outProv != "" {
+		t.Errorf("Expected empty providers, got in: %q, out: %q", inProv, outProv)
+	}
+}
+
+func TestParseFrontmatter_ExtraFields(t *testing.T) {
+	content := "---\ninput_token_provider: input-prov\noutput_token_provider: output-prov\nextra_field: ignore-me\n---\n# My Skill\nHello"
+	body, inProv, outProv := parseSkillContent(content)
+	if body != "# My Skill\nHello" {
+		t.Errorf("Expected body '# My Skill\\nHello', got %q", body)
+	}
+	if inProv != "input-prov" {
+		t.Errorf("Expected input provider 'input-prov', got %q", inProv)
+	}
+	if outProv != "output-prov" {
+		t.Errorf("Expected output provider 'output-prov', got %q", outProv)
+	}
+}
+
+func TestProviderFallback_AgentDefault(t *testing.T) {
+	agentProvider := "agent-default"
+	
+	inProv := ""
+	outProv := ""
+	
+	inputTokenProvider := agentProvider
+	outputTokenProvider := agentProvider
+	
+	if inProv != "" {
+		inputTokenProvider = inProv
+	}
+	if outProv != "" {
+		outputTokenProvider = outProv
+	}
+	
+	if inputTokenProvider != "agent-default" || outputTokenProvider != "agent-default" {
+		t.Errorf("Expected fallback to agent provider, got in: %q, out: %q", inputTokenProvider, outputTokenProvider)
+	}
+}
+
+func TestProviderFallback_BothEmpty(t *testing.T) {
+	agentProvider := ""
+	
+	inProv := ""
+	outProv := ""
+	
+	inputTokenProvider := agentProvider
+	outputTokenProvider := agentProvider
+	
+	if inProv != "" {
+		inputTokenProvider = inProv
+	}
+	if outProv != "" {
+		outputTokenProvider = outProv
+	}
+	
+	if inputTokenProvider != "" || outputTokenProvider != "" {
+		t.Errorf("Expected empty token providers, got in: %q, out: %q", inputTokenProvider, outputTokenProvider)
+	}
+}
+
+func TestSkillTokenAttributionIntegration(t *testing.T) {
+	// Set up config with an agent having a static skill "test-token-attribution"
+	cfg := &config.Config{
+		Provider:    "openai",
+		Model:       "gpt-4o",
+		TagRequired: false,
+		Agents: []config.AgentConfig{
+			{
+				Name:     "Lead Strategist",
+				Role:     "Lead Strategist",
+				Skills:   []string{"test-token-attribution"},
+				Provider: "agent-default-provider",
+			},
+		},
+	}
+
+	coord := workforce.NewCoordinator(nil, nil)
+	server := workforce.NewWSServer(coord)
+
+	mux := http.NewServeMux()
+	server.ServeOnMux(mux)
+	testServer := httptest.NewServer(mux)
+	defer testServer.Close()
+
+	wsURL := strings.Replace(testServer.URL, "http", "ws", 1) + "/ws"
+
+	dialer := websocket.Dialer{}
+	conn, _, err := dialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("Failed to dial WebSocket server: %v", err)
+	}
+	defer conn.Close()
+
+	var initialEvt workforce.Event
+	_ = conn.ReadJSON(&initialEvt)
+
+	events := make(chan workforce.Event, 100)
+	go func() {
+		for {
+			var evt workforce.Event
+			err := conn.ReadJSON(&evt)
+			if err != nil {
+				return
+			}
+			events <- evt
+		}
+	}()
+
+	runID := "test-run-attribution"
+	prompt := "run with static skill"
+
+	go runWorkforceExecution(coord, server, cfg, prompt, runID)
+
+	timeout := time.After(5 * time.Second)
+	attributionFound := false
+
+LoopAttribution:
+	for {
+		select {
+		case evt := <-events:
+			if evt.Type == "agent.speak" && evt.Sender == "Lead Strategist" {
+				inProv, _ := evt.Metadata["input_token_provider"].(string)
+				outProv, _ := evt.Metadata["output_token_provider"].(string)
+				if inProv == "test-input" && outProv == "test-output" {
+					attributionFound = true
+				} else {
+					t.Errorf("Metadata mismatch: input: %q, output: %q", inProv, outProv)
+				}
+				break LoopAttribution
+			}
+		case <-timeout:
+			break LoopAttribution
+		}
+		if attributionFound {
+			break LoopAttribution
+		}
+	}
+
+	if !attributionFound {
+		t.Error("Expected event metadata to contain input_token_provider and output_token_provider from the skill")
+	}
+
+	abortCmd := workforce.Command{
+		Type:  "run.abort",
+		RunID: runID,
+	}
+	abortBytes, _ := json.Marshal(abortCmd)
+	_ = conn.WriteMessage(websocket.TextMessage, abortBytes)
+}
+
