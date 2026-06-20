@@ -4,6 +4,10 @@
 
 ---
 
+![Companion GUI Dashboard](img/dashboard.png)
+
+---
+
 [English](#agent-office-cli--companion-gui) | [繁體中文](#agent-office-cli--companion-gui-繁體中文)
 
 ---
@@ -231,6 +235,10 @@ go test ./... -v
 # Agent Office CLI & Companion GUI (繁體中文)
 
 `agent-office` 是一個基於 Go 語言開發的高性能、在地優先（Local-first）多智能體（Multi-agent）編排運行時。它使開發人員能夠以確定性的方式協調智能體工作流，並透過本地 WebSocket 通訊的獨立 GUI 儀表板監控執行狀態。
+
+---
+
+![Companion GUI 儀表板](img/dashboard.png)
 
 ---
 
